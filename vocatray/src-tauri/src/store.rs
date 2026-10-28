@@ -31,6 +31,18 @@ pub struct Stamped<T> {
 pub struct WordRecord {
     pub memorized: bool,
     pub at: String,
+    /// 퀴즈 기록 — 시각을 따로 둬서 퀴즈를 풀어도 `at`(외운 날짜)이 바뀌지 않는다
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiz: Option<Stamped<QuizStats>>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct QuizStats {
+    /// 나온 횟수 · 맞힌 횟수 — 틀려도 줄지 않는다
+    pub asked: u32,
+    pub correct: u32,
+    /// 마지막으로 틀린 뒤 맞힌 횟수 — 퀴즈에 나올 가중치가 0.5^streak (picker::pick_weighted)
+    pub streak: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -58,7 +70,26 @@ impl Progress {
     }
 
     pub fn set_memorized(&mut self, key: &str, memorized: bool, at: String) {
-        self.words.insert(key.to_string(), WordRecord { memorized, at });
+        let quiz = self.words.get(key).and_then(|r| r.quiz.clone());
+        self.words.insert(key.to_string(), WordRecord { memorized, at, quiz });
+    }
+
+    pub fn quiz_stats(&self, key: &str) -> QuizStats {
+        self.words.get(key).and_then(|r| r.quiz.as_ref()).map(|q| q.value).unwrap_or_default()
+    }
+
+    /// 퀴즈 채점 — 맞히면 가중치가 반으로, 틀리면 처음(1)으로 돌아간다. 나온·맞힌 횟수는 쌓이기만 한다.
+    pub fn record_quiz(&mut self, key: &str, correct: bool, at: String) {
+        let Some(record) = self.words.get_mut(key) else { return };
+        let mut stats = record.quiz.as_ref().map(|q| q.value).unwrap_or_default();
+        stats.asked += 1;
+        if correct {
+            stats.correct += 1;
+            stats.streak += 1;
+        } else {
+            stats.streak = 0;
+        }
+        record.quiz = Some(Stamped { value: stats, at });
     }
 
     pub fn selected_book(&self) -> Option<&str> {
@@ -70,18 +101,28 @@ impl Progress {
     }
 
     /// 다른 기기 기록을 합친다 — 단어마다 `at`이 더 최근인 기록이 이기고, 시각이 같으면 "외웠음"이 이긴다.
-    /// 단어장 선택도 최근 것이 이긴다. 합친 결과가 달라졌으면 true.
+    /// 퀴즈 기록과 단어장 선택도 따로 최근 것이 이긴다. 합친 결과가 달라졌으면 true.
     /// 어느 기기에서 어떤 순서로 합쳐도 결과가 같다 → 기기마다 합친 기록이 결국 같아진다.
     pub fn merge(&mut self, other: &Progress) -> bool {
         let mut changed = false;
         for (key, theirs) in &other.words {
-            let take = match self.words.get(key) {
-                Some(mine) => theirs.at > mine.at || (theirs.at == mine.at && theirs.memorized && !mine.memorized),
-                None => true,
-            };
-            if take {
+            let Some(mine) = self.words.get_mut(key) else {
                 self.words.insert(key.clone(), theirs.clone());
                 changed = true;
+                continue;
+            };
+            if theirs.at > mine.at || (theirs.at == mine.at && theirs.memorized && !mine.memorized) {
+                mine.memorized = theirs.memorized;
+                mine.at = theirs.at.clone();
+                changed = true;
+            }
+            if let Some(tq) = &theirs.quiz {
+                // 시각이 같으면 횟수가 큰 쪽 — 기기마다 다른 쪽을 고르지 않게
+                let rank = |q: &Stamped<QuizStats>| (q.at.clone(), q.value.asked, q.value.correct, q.value.streak);
+                if mine.quiz.as_ref().is_none_or(|mq| rank(tq) > rank(mq)) {
+                    mine.quiz = Some(tq.clone());
+                    changed = true;
+                }
             }
         }
         if let Some(theirs) = &other.selected_book {
@@ -312,6 +353,34 @@ mod tests {
         let before = pc.clone();
         assert!(!pc.merge(&old));
         assert_eq!(pc, before);
+    }
+
+    #[test]
+    fn quiz_wrong_resets_streak_but_keeps_counts() {
+        let mut p = Progress::new("pc");
+        p.set_memorized("apple", true, T1.into());
+        p.record_quiz("apple", true, T1.into());
+        p.record_quiz("apple", true, T1.into());
+        assert_eq!(p.quiz_stats("apple"), QuizStats { asked: 2, correct: 2, streak: 2 });
+        p.record_quiz("apple", false, T2.into());
+        assert_eq!(p.quiz_stats("apple"), QuizStats { asked: 3, correct: 2, streak: 0 });
+        // 못 외웠어요로 되돌리고 다시 외워도 퀴즈 기록은 남는다
+        p.set_memorized("apple", false, T2.into());
+        p.set_memorized("apple", true, T2.into());
+        assert_eq!(p.quiz_stats("apple").asked, 3);
+    }
+
+    #[test]
+    fn merge_quiz_newest_wins_without_touching_memorized_date() {
+        let mut pc = Progress::new("pc");
+        pc.set_memorized("apple", true, T1.into());
+        let mut mac = pc.clone();
+        mac.record_quiz("apple", true, T2.into());
+
+        assert!(pc.merge(&mac));
+        assert_eq!(pc.quiz_stats("apple").correct, 1);
+        assert_eq!(pc.words["apple"].at, T1);
+        assert!(!mac.merge(&pc));
     }
 
     #[test]

@@ -33,7 +33,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 use picker::Picker;
 use placement::{Area, place_card};
-use store::Progress;
+use store::{Progress, QuizStats};
 use wordbook::{Word, WordBook};
 
 /// 마우스가 아이콘 위에 이만큼 머물러야 카드를 띄운다 — 지나가기만 해서는 카드가 뜨지 않게.
@@ -388,13 +388,41 @@ struct MemorizedWord {
     key: String,
     at: String,
     word: Word,
+    quiz: QuizStats,
 }
 
 /// 외운 단어 — 최근에 외운 것부터. 외운 기록은 단어장과 상관없이 단어마다 하나라
 /// 모든 단어장에서 찾는다 (같은 단어가 여러 단어장에 있으면 지금 단어장의 뜻).
 #[tauri::command]
 fn memorized_words(app: AppHandle) -> Vec<MemorizedWord> {
-    let s = lock(&app);
+    memorized(&lock(&app))
+}
+
+/// 퀴즈 한 문제 — 외운 단어 전체에서 가중치대로 뽑는다 (picker::pick_weighted). 외운 단어가 없으면 `None`.
+#[tauri::command]
+fn quiz_word(app: AppHandle) -> Option<MemorizedWord> {
+    let mut words = memorized(&lock(&app));
+    let streaks: Vec<u32> = words.iter().map(|m| m.quiz.streak).collect();
+    let i = picker::pick_weighted(&streaks, fastrand::f64())?;
+    Some(words.swap_remove(i))
+}
+
+/// 퀴즈 채점. 틀리면 그 단어의 가중치를 처음으로 되돌리고 "못 외웠어요"로 바꿔 카드에 다시 나오게 한다.
+#[tauri::command]
+fn quiz_answer(app: AppHandle, key: String, correct: bool) {
+    {
+        let mut s = lock(&app);
+        let at = store::now();
+        s.progress.record_quiz(&key, correct, at.clone());
+        if !correct {
+            s.progress.set_memorized(&key, false, at);
+        }
+        s.save();
+    }
+    progress_changed(&app);
+}
+
+fn memorized(s: &AppState) -> Vec<MemorizedWord> {
     let mut index: HashMap<String, &Word> = HashMap::new();
     for word in std::iter::once(s.book()).chain(&s.books).flat_map(|b| &b.words) {
         index.entry(word.key()).or_insert(word);
@@ -406,14 +434,15 @@ fn memorized_words(app: AppHandle) -> Vec<MemorizedWord> {
         .filter(|(_, record)| record.memorized)
         .filter_map(|(key, record)| {
             let word = (*index.get(key)?).clone();
-            Some(MemorizedWord { key: key.clone(), at: record.at.clone(), word })
+            let quiz = s.progress.quiz_stats(key);
+            Some(MemorizedWord { key: key.clone(), at: record.at.clone(), word, quiz })
         })
         .collect();
     words.sort_by(|a, b| b.at.cmp(&a.at));
     words
 }
 
-/// 외운 단어를 "못 외웠어요"로 되돌린다 — 외운 단어 창·퀴즈([틀렸어요])에서 부른다.
+/// 외운 단어를 "못 외웠어요"로 되돌린다 — 외운 단어 창·클릭 카드에서 부른다.
 #[tauri::command]
 fn forget_word(app: AppHandle, key: String) {
     {
@@ -637,7 +666,9 @@ pub fn run() {
             previous_word,
             hide_click,
             memorized_words,
-            forget_word
+            forget_word,
+            quiz_word,
+            quiz_answer
         ])
         .on_window_event(on_window_event)
         .setup(|app| {

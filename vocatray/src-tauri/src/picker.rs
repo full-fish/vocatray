@@ -55,10 +55,48 @@ impl Picker {
     }
 }
 
+/// 퀴즈 문제 고르기 — 셔플 백과 달리 매번 전체에서 뽑아서 같은 단어가 또 나올 수 있다.
+/// 단어마다 가중치가 0.5^streak(연속으로 맞힌 횟수)라 한 번 맞히면 다른 단어보다 반만큼 나온다.
+/// `roll`은 [0, 1) 난수. 후보가 없으면 `None`.
+pub fn pick_weighted(streaks: &[u32], roll: f64) -> Option<usize> {
+    let weight = |streak: u32| 0.5f64.powi(streak.min(1000) as i32);
+    let mut left = roll * streaks.iter().map(|&s| weight(s)).sum::<f64>();
+    for (i, &s) in streaks.iter().enumerate() {
+        left -= weight(s);
+        if left < 0.0 {
+            return Some(i);
+        }
+    }
+    // 부동소수점 오차로 끝까지 남으면 마지막 것
+    streaks.len().checked_sub(1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn weighted_pick_halves_per_correct_answer() {
+        // 가중치 1 · 0.5 · 0.25 → 합 1.75 → 확률 4/7 · 2/7 · 1/7
+        let mut rng = fastrand::Rng::with_seed(3);
+        let mut counts = [0u32; 3];
+        for _ in 0..70_000 {
+            counts[pick_weighted(&[0, 1, 2], rng.f64()).unwrap()] += 1;
+        }
+        let share = |c: u32| c as f64 / 70_000.0;
+        assert!((share(counts[0]) - 4.0 / 7.0).abs() < 0.01, "{counts:?}");
+        assert!((share(counts[1]) - 2.0 / 7.0).abs() < 0.01, "{counts:?}");
+        assert!((share(counts[2]) - 1.0 / 7.0).abs() < 0.01, "{counts:?}");
+    }
+
+    #[test]
+    fn weighted_pick_edges() {
+        assert_eq!(pick_weighted(&[], 0.5), None);
+        assert_eq!(pick_weighted(&[5], 0.999), Some(0));
+        assert_eq!(pick_weighted(&[0, 0], 0.0), Some(0));
+        assert_eq!(pick_weighted(&[0, 0], 0.9999), Some(1));
+    }
 
     fn words(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("w{i}")).collect()
