@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VocaTray</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <!-- 호버 카드와 클릭 카드가 같은 화면을 쓴다 — 창 주소의 #hover / #click 으로 구분 -->
+    <article id="card">
+      <section id="entry">
+        <header>
+          <h1 id="word"></h1>
+          <span id="phonetic"></span>
+        </header>
+        <ul id="senses"></ul>
+        <div id="examples"></div>
+      </section>
+      <section id="done" hidden>
+        <p class="done-title">이 단어장을 다 외웠어요! 🎉</p>
+        <p class="done-hint">트레이 아이콘 우클릭 › 단어장에서 다른 단어장을 골라 보세요.</p>
+      </section>
+      <div id="actions">
+        <button id="prev" type="button" title="바로 전 단어">◀</button>
+        <button id="memorize" type="button">✓ 외웠어요</button>
+        <button id="forget" type="button" hidden>✗ 못 외웠어요</button>
+        <button id="next" type="button">다음 ▶</button>
+      </div>
+      <footer id="meta"></footer>
+    </article>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "카드 창 (호버·클릭)과 외운 단어·퀴즈 창 — 이벤트 받기와 앱 명령 호출만 쓴다",
+  "windows": ["hover", "click", "words", "quiz"],
+  "permissions": [
+    "core:default"
+  ]
+}

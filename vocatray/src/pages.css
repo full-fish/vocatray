@@ -1,0 +1,155 @@
+/* 외운 단어 창·퀴즈 창 — 색·글꼴·단어 모양(.sense, .example 등)은 styles.css를 그대로 쓴다 */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100vh;
+  padding: 10px 12px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.btn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 600;
+  background: var(--button);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn.accent {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: var(--accent-text);
+}
+
+.buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.buttons .btn {
+  flex: 1;
+  padding: 6px 0;
+}
+
+/* 외운 단어 창 */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#search {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  user-select: text;
+}
+
+#list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.row .text {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.row .w {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.row .phon,
+.row .date {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.row .date {
+  margin-left: auto;
+}
+
+/* 줄마다 있는 버튼이라 빨간 바탕 대신 글자만 */
+.row .btn {
+  color: var(--danger);
+}
+
+.row .ko {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 퀴즈 창 */
+
+.quiz {
+  overflow-y: auto;
+}
+
+.quiz #word {
+  font-size: 22px;
+}
+
+#reveal {
+  width: 100%;
+  margin-top: 10px;
+  padding: 24px 0;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  cursor: pointer;
+}
+
+#reveal:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+#answer {
+  margin-top: 6px;
+}

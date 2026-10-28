@@ -1,0 +1,178 @@
+:root {
+  --bg: #ffffff;
+  --text: #1f2328;
+  --muted: #656d76;
+  --line: #d8dee4;
+  --accent: #2563eb;
+  --accent-text: #ffffff;
+  --danger: #cf222e;
+  --button: #eef1f4;
+
+  font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1f2328;
+    --text: #e6edf3;
+    --muted: #9198a1;
+    --line: #3d444d;
+    --accent: #4c8dff;
+    --danger: #e5534b;
+    --button: #2d333b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* 창 높이는 이 카드의 높이에 맞춰진다 (main.ts → card_ready) */
+#card {
+  padding: 7px 10px 5px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+#word {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+#phonetic {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#senses {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.sense {
+  display: flex;
+  gap: 4px;
+  font-size: 12.5px;
+}
+
+.pos {
+  flex: none;
+  min-width: 24px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 11px;
+  padding-top: 1px;
+}
+
+.sense .phon {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  padding-top: 1px;
+}
+
+.example {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+}
+
+.example p {
+  margin: 0;
+}
+
+.example .en {
+  font-style: italic;
+}
+
+.example .ko {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.done-title {
+  margin: 2px 0 1px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.done-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+#actions button {
+  flex: 1;
+  padding: 3px 0;
+  border: none;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 600;
+  background: var(--button);
+  color: var(--text);
+  cursor: pointer;
+}
+
+#actions #memorize {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+#actions #forget {
+  background: var(--danger);
+  color: var(--accent-text);
+}
+
+#actions #prev {
+  flex: none;
+  padding: 3px 9px;
+}
+
+#actions button:hover {
+  filter: brightness(1.08);
+}
+
+#actions button:disabled {
+  opacity: 0.4;
+  filter: none;
+  cursor: default;
+}
+
+#meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}

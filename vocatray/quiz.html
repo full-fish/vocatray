@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/pages.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>퀴즈</title>
+    <script type="module" src="/src/quiz.ts" defer></script>
+  </head>
+
+  <body>
+    <main class="page quiz">
+      <p id="score" class="hint"></p>
+      <section id="question" hidden>
+        <header>
+          <h1 id="word"></h1>
+          <span id="phonetic"></span>
+        </header>
+        <button id="reveal" type="button">눌러서 뜻 보기</button>
+        <div id="answer" hidden>
+          <ul id="senses"></ul>
+          <div id="examples"></div>
+        </div>
+      </section>
+      <div id="grade" class="buttons" hidden>
+        <button id="right" type="button" class="btn accent">⭕ 맞았어요</button>
+        <button id="wrong" type="button" class="btn danger">✗ 틀렸어요</button>
+      </div>
+      <section id="finished" hidden>
+        <p class="done-title" id="finished-title"></p>
+        <p class="hint">틀린 단어는 "못 외웠어요"로 바뀌어 카드에 다시 나와요.</p>
+        <div class="buttons">
+          <button id="again" type="button" class="btn accent">다시 풀기</button>
+        </div>
+      </section>
+      <p id="empty" class="hint" hidden>
+        아직 외운 단어가 없어요. 카드에서 [외웠어요]를 누른 단어로 퀴즈를 내요.
+      </p>
+    </main>
+  </body>
+</html>

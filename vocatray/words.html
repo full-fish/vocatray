@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/pages.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>외운 단어</title>
+    <script type="module" src="/src/words.ts" defer></script>
+  </head>
+
+  <body>
+    <main class="page">
+      <div class="bar">
+        <input id="search" type="search" placeholder="검색 — 영어 또는 뜻" autocomplete="off" />
+        <span id="count" class="hint"></span>
+      </div>
+      <ul id="list"></ul>
+      <p id="empty" class="hint" hidden></p>
+    </main>
+  </body>
+</html>
