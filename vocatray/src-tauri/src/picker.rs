@@ -43,6 +43,13 @@ impl Picker {
         }
     }
 
+    /// [몰라요] — 이 단어를 `gap`개 뒤에 한 번 더 나오게 넣는다. 원래 바퀴의 차례는 그대로라 그만큼 더 자주 나온다.
+    /// 남은 단어가 `gap`개보다 적으면 이번 바퀴 맨 끝.
+    pub fn again(&mut self, key: &str, gap: usize) {
+        let at = self.bag.len().saturating_sub(gap);
+        self.bag.insert(at, key.to_string());
+    }
+
     fn refill(&mut self, candidates: &[String]) {
         let mut bag = candidates.to_vec();
         self.rng.shuffle(&mut bag);
@@ -130,6 +137,27 @@ mod tests {
             let key = picker.next(&remaining).unwrap();
             assert!(remaining.contains(&key), "외운 단어 {key}가 나옴");
         }
+    }
+
+    #[test]
+    fn again_brings_word_back_after_gap() {
+        let all = words(30);
+        let mut picker = Picker::with_rng(fastrand::Rng::with_seed(5));
+        let first = picker.next(&all).unwrap();
+        picker.again(&first, 3);
+        let picks: Vec<_> = (0..4).map(|_| picker.next(&all).unwrap()).collect();
+        assert!(!picks[..3].contains(&first));
+        assert_eq!(picks[3], first);
+    }
+
+    #[test]
+    fn again_near_end_of_round_comes_last() {
+        let all = words(3);
+        let mut picker = Picker::with_rng(fastrand::Rng::with_seed(5));
+        let first = picker.next(&all).unwrap();
+        picker.again(&first, 10);
+        let rest: Vec<_> = (0..3).map(|_| picker.next(&all).unwrap()).collect();
+        assert_eq!(rest[2], first);
     }
 
     #[test]

@@ -47,6 +47,8 @@ const CARD_WIDTH: f64 = 240.0;
 const CARD_GAP: f64 = 6.0;
 /// 단어장을 고른 적이 없을 때 쓰는 단어장.
 const DEFAULT_BOOK: &str = "middle";
+/// [몰라요]를 누른 단어는 이만큼 다른 단어를 본 뒤에 한 번 더 나온다.
+const AGAIN_GAP: usize = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -377,6 +379,19 @@ fn next_word(app: AppHandle) {
     present(&app, Card::Click);
 }
 
+/// [몰라요] — 다음 단어로 넘어가되, 이 단어를 `AGAIN_GAP`개 뒤에 한 번 더 보여 준다.
+#[tauri::command]
+fn dont_know(app: AppHandle) {
+    {
+        let mut s = lock(&app);
+        if let Some(key) = s.current.clone() {
+            s.picker.again(&key, AGAIN_GAP);
+        }
+        s.advance();
+    }
+    present(&app, Card::Click);
+}
+
 #[tauri::command]
 fn previous_word(app: AppHandle) {
     lock(&app).back();
@@ -426,6 +441,46 @@ struct BookInfo {
 #[tauri::command]
 fn book_list(app: AppHandle) -> Vec<BookInfo> {
     lock(&app).books.iter().map(|b| BookInfo { id: b.id.clone(), title: b.title.clone() }).collect()
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BookStat {
+    title: String,
+    total: usize,
+    memorized: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Stats {
+    books: Vec<BookStat>,
+    /// 지금 외운 단어마다 외운 시각 — 날짜별로 묶는 건 화면이 한다 (내 컴퓨터 시간대 기준)
+    memorized_at: Vec<String>,
+    quiz_asked: u32,
+    quiz_correct: u32,
+}
+
+/// 통계 창
+#[tauri::command]
+fn stats(app: AppHandle) -> Stats {
+    let s = lock(&app);
+    let books = s
+        .books
+        .iter()
+        .map(|b| BookStat {
+            title: b.title.clone(),
+            total: b.words.len(),
+            memorized: b.words.iter().filter(|w| s.progress.is_memorized(&w.key())).count(),
+        })
+        .collect();
+    let records = s.progress.words.values();
+    Stats {
+        books,
+        memorized_at: records.clone().filter(|r| r.memorized).map(|r| r.at.clone()).collect(),
+        quiz_asked: records.clone().filter_map(|r| r.quiz.as_ref()).map(|q| q.value.asked).sum(),
+        quiz_correct: records.filter_map(|r| r.quiz.as_ref()).map(|q| q.value.correct).sum(),
+    }
 }
 
 /// 퀴즈 채점. 틀리면 그 단어의 가중치를 처음으로 되돌리고 "못 외웠어요"로 바꿔 카드에 다시 나오게 한다.
@@ -496,6 +551,7 @@ fn on_menu_event(app: &AppHandle, event: MenuEvent) {
         "sync-now" => return sync::notify(app, sync::Command::SyncNow),
         "words" => return open_window(app, "words", "외운 단어", (380.0, 520.0)),
         "quiz" => return open_window(app, "quiz", "퀴즈", (340.0, 400.0)),
+        "stats" => return open_window(app, "stats", "통계", (340.0, 420.0)),
         "autostart" => return toggle_autostart(app),
         _ => {}
     }
@@ -650,6 +706,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .item(&submenu.build()?)
         .text("words", "외운 단어…")
         .text("quiz", "퀴즈…")
+        .text("stats", "통계…")
         .separator()
         .item(&status)
         .item(&sync_now)
@@ -690,7 +747,9 @@ pub fn run() {
             forget_word,
             quiz_word,
             quiz_answer,
-            book_list
+            book_list,
+            dont_know,
+            stats
         ])
         .on_window_event(on_window_event)
         .setup(|app| {

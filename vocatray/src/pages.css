@@ -59,7 +59,8 @@
 }
 
 #search,
-#book {
+#book,
+#dir {
   flex: 1;
   min-width: 0;
   padding: 5px 8px;
@@ -152,6 +153,90 @@
   border-color: var(--muted);
 }
 
-#answer {
+.quiz #senses {
   margin-top: 6px;
+}
+
+/* 답을 보기 전에 가리는 것 — 예문은 단어가 들어 있어 늘 가린다 */
+.quiz:not(.revealed) #examples,
+.quiz:not(.revealed)[data-dir="en"] #senses,
+.quiz:not(.revealed)[data-dir="ko"] header,
+.quiz:not(.revealed)[data-dir="ko"] .sense .phon {
+  display: none;
+}
+
+/* 통계 창 */
+
+.stats {
+  overflow-y: auto;
+  gap: 14px;
+}
+
+.stats h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.stats p {
+  margin: 0;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--button);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.days {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+}
+
+.day-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 60px;
+}
+
+.day-bar {
+  width: 100%;
+  min-height: 1px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+}
+
+.day-label {
+  color: var(--muted);
 }

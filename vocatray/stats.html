@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/pages.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>통계</title>
+    <script type="module" src="/src/stats.ts" defer></script>
+  </head>
+
+  <body>
+    <main class="page stats">
+      <section>
+        <h2>단어장별 진도</h2>
+        <ul id="books" class="progress"></ul>
+      </section>
+      <section>
+        <h2>최근 7일 외운 단어</h2>
+        <div id="days" class="days"></div>
+        <p id="days-note" class="hint"></p>
+      </section>
+      <section>
+        <h2>퀴즈</h2>
+        <p id="quiz-summary"></p>
+      </section>
+    </main>
+  </body>
+</html>

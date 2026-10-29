@@ -68,6 +68,24 @@ header {
   font-size: 11px;
 }
 
+.speak {
+  padding: 0 2px;
+  border: none;
+  font: inherit;
+  font-size: 12px;
+  background: none;
+  cursor: pointer;
+}
+
+.speak:hover {
+  filter: brightness(1.2);
+}
+
+/* 호버 카드는 마우스가 닿기 전에 닫히므로 버튼을 보여 주지 않는다 */
+body[data-mode="hover"] .speak {
+  display: none;
+}
+
 #senses {
   list-style: none;
   margin: 2px 0 0;
@@ -143,6 +161,7 @@ header {
   background: var(--button);
   color: var(--text);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 #actions #memorize {

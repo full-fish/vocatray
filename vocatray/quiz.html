@@ -10,10 +10,15 @@
   </head>
 
   <body>
-    <main class="page quiz">
+    <!-- data-dir: en = 영어를 보고 뜻 맞히기, ko = 뜻을 보고 영어 맞히기. 무엇을 가릴지는 pages.css가 정한다 -->
+    <main id="quiz" class="page quiz" data-dir="en">
       <div class="bar">
         <select id="book" aria-label="퀴즈 범위">
           <option value="">전체 단어장</option>
+        </select>
+        <select id="dir" aria-label="퀴즈 방향">
+          <option value="en">영어 → 뜻</option>
+          <option value="ko">뜻 → 영어</option>
         </select>
       </div>
       <p id="score" class="hint"></p>
@@ -21,12 +26,11 @@
         <header>
           <h1 id="word"></h1>
           <span id="phonetic"></span>
+          <button id="speak" class="speak" type="button" title="발음 듣기">🔊</button>
         </header>
-        <button id="reveal" type="button">눌러서 뜻 보기</button>
-        <div id="answer" hidden>
-          <ul id="senses"></ul>
-          <div id="examples"></div>
-        </div>
+        <ul id="senses"></ul>
+        <button id="reveal" type="button"></button>
+        <div id="examples"></div>
       </section>
       <div id="grade" class="buttons" hidden>
         <button id="right" type="button" class="btn accent">⭕ 맞았어요</button>

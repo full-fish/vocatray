@@ -27,10 +27,10 @@ export default defineConfig(() => ({
       ignored: ["**/src-tauri/**"],
     },
   },
-  // 카드(index), 외운 단어 창, 퀴즈 창 — 페이지가 셋이다
+  // 카드(index), 외운 단어 창, 퀴즈 창, 통계 창 — 페이지가 넷이다
   build: {
     rolldownOptions: {
-      input: ["index.html", "words.html", "quiz.html"],
+      input: ["index.html", "words.html", "quiz.html", "stats.html"],
     },
   },
 }));

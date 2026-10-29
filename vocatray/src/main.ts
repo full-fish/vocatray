@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { $, renderWord, type Word } from "./word";
+import { $, renderWord, speak, type Word } from "./word";
 
 type CardPayload = {
   card: "hover" | "click";
@@ -24,6 +24,8 @@ const prev = $<HTMLButtonElement>("prev");
 const memorize = $("memorize");
 const forget = $("forget");
 const next = $("next");
+const dontKnow = $("dontknow");
+let word: Word | null = null;
 
 function render(p: CardPayload) {
   entry.hidden = p.word === null;
@@ -34,7 +36,9 @@ function render(p: CardPayload) {
   // [◀]로 돌아온 단어를 이미 외웠으면 [외웠어요] 자리에 [못 외웠어요]
   memorize.hidden = p.word === null || p.memorized;
   forget.hidden = p.word === null || !p.memorized;
+  dontKnow.hidden = p.word === null || p.memorized;
   next.hidden = p.word === null;
+  word = p.word;
   $("meta").textContent = `${p.bookTitle} · 남은 단어 ${p.remaining} / ${p.total}`;
   if (p.word) renderWord(p.word);
 }
@@ -51,7 +55,9 @@ listen<CardPayload>("card", ({ payload }) => {
 prev.addEventListener("click", () => invoke("previous_word"));
 memorize.addEventListener("click", () => invoke("memorize"));
 forget.addEventListener("click", () => invoke("unmemorize"));
+dontKnow.addEventListener("click", () => invoke("dont_know"));
 next.addEventListener("click", () => invoke("next_word"));
+$("speak").addEventListener("click", () => word && speak(word.word));
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") invoke("hide_click");
 });
