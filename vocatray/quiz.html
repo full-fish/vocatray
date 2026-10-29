@@ -11,6 +11,11 @@
 
   <body>
     <main class="page quiz">
+      <div class="bar">
+        <select id="book" aria-label="퀴즈 범위">
+          <option value="">전체 단어장</option>
+        </select>
+      </div>
       <p id="score" class="hint"></p>
       <section id="question" hidden>
         <header>
@@ -28,7 +33,7 @@
         <button id="wrong" type="button" class="btn danger" title="못 외웠어요로 바뀌어 카드에 다시 나와요">✗ 틀렸어요</button>
       </div>
       <p id="empty" class="hint" hidden>
-        아직 외운 단어가 없어요. 카드에서 [외웠어요]를 누른 단어로 퀴즈를 내요.
+        이 단어장엔 아직 외운 단어가 없어요. 카드에서 [외웠어요]를 누른 단어로 퀴즈를 내요.
       </p>
     </main>
   </body>

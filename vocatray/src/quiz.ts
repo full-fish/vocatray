@@ -9,12 +9,13 @@ const question = $("question");
 const answer = $("answer");
 const reveal = $("reveal");
 const grade = $("grade");
+const book = $<HTMLSelectElement>("book");
 let current: MemorizedWord | null = null;
 let right = 0;
 let wrong = 0;
 
 async function show() {
-  current = await invoke<MemorizedWord | null>("quiz_word");
+  current = await invoke<MemorizedWord | null>("quiz_word", { book: book.value || null });
   question.hidden = !current;
   answer.hidden = true;
   reveal.hidden = false;
@@ -40,4 +41,11 @@ reveal.addEventListener("click", () => {
 });
 $("right").addEventListener("click", () => answerWith(true));
 $("wrong").addEventListener("click", () => answerWith(false));
-show();
+book.addEventListener("change", show);
+
+async function start() {
+  const books = await invoke<{ id: string; title: string }[]>("book_list");
+  book.append(...books.map((b) => new Option(b.title, b.id)));
+  show();
+}
+start();
