@@ -23,8 +23,8 @@ function render() {
     ...shown.map((m) => {
       const head = el("div", "head", "");
       head.append(el("span", "w", m.word.word), el("span", "phon", m.word.phonetic), el("span", "date", day(m.at)));
-      // 퀴즈에 나온 적 있는 단어만 — 나온 횟수 · 맞힌 횟수
-      if (m.quiz.asked > 0) head.append(el("span", "stat", `퀴즈 ${m.quiz.asked}번 · 맞음 ${m.quiz.correct}번`));
+      // 퀴즈에 나온 적 있는 단어만 — 맞힌 횟수/나온 횟수
+      if (m.quiz.asked > 0) head.append(el("span", "stat", `퀴즈 ${m.quiz.correct}/${m.quiz.asked}`));
       const text = el("div", "text", "");
       text.append(head, el("div", "ko", meaning(m.word)));
       const forget = el("button", "btn", "못 외웠어요");
