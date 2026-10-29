@@ -14,7 +14,27 @@
   StrCpy $NoShortcutMode 0
   ; 시작 시 자동 실행은 기본으로 켠다 — 처음 설치할 때(이 PC에 학습 기록이 없을 때)만.
   ; 업데이트할 때 사용자가 트레이 메뉴에서 꺼 둔 설정을 되살리지 않게.
-  ${IfNot} ${FileExists} "$APPDATA\com.vocatray.desktop\device.json"
+  ; 덮어 설치하면서 옛 버전 제거가 지운 자동 실행(아래 PREUNINSTALL)은 되살린다.
+  Push $0
+  ReadRegStr $0 HKCU "Software\VocaTray" "RestoreAutostart"
+  ${If} $0 == "1"
+  ${OrIfNot} ${FileExists} "$APPDATA\com.vocatray.desktop\device.json"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "VocaTray" '"$INSTDIR\vocatray.exe"'
+  ${EndIf}
+  DeleteRegKey HKCU "Software\VocaTray"
+  Pop $0
+!macroend
+
+; 설치 파일로 덮어 설치하면 기본 스크립트가 옛 버전 제거를 먼저 돌리고, 그 제거가 자동 실행 항목을 지운다
+; (자동 업데이트(/UPDATE) 때만 빼고). 켜져 있었으면 표시를 남겨 POSTINSTALL에서 되살린다.
+; 정말 제거할 때도 표시가 남지만 다음에 설치할 때 자동 실행이 원래대로 켜질 뿐이다.
+!macro NSIS_HOOK_PREUNINSTALL
+  ${If} $UpdateMode <> 1
+    Push $0
+    ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "VocaTray"
+    ${If} $0 != ""
+      WriteRegStr HKCU "Software\VocaTray" "RestoreAutostart" "1"
+    ${EndIf}
+    Pop $0
   ${EndIf}
 !macroend

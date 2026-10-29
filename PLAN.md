@@ -383,7 +383,9 @@ npm run tauri dev
 - 클릭 카드 [◀ 이전] + [못 외웠어요] — 완료 (2026-10-28, §5.3 규칙 4)
 - 설정 창: 예문 표시 여부, 단어 교체 방식 (누를 때만 / N분마다)
 - 시작 시 자동 실행 (`autostart` 플러그인 — Windows·Mac 둘 다) — 메뉴 체크로 구현 (2026-10-28). **지금 실행 중인 프로그램 경로를 등록**한다 → 개발 모드(`tauri dev`)에서 켜면 다음 로그인 때 개발 서버 없이 떠서 빈 카드가 뜬다. 설치한 앱에서 켤 것
-  - **기본은 켜짐:** Windows 설치 프로그램이 처음 설치할 때(학습 기록 `device.json`이 없을 때)만 Run 키에 등록한다 (`src-tauri/windows/hooks.nsh`). 업데이트 땐 건드리지 않아 메뉴에서 꺼 둔 설정이 유지된다. Mac은 설치 프로그램이 없으니 Mac 빌드 때 앱이 처음 켤 때 켜는 식으로 따로 해야 한다
+  - **기본은 켜짐:** Windows 설치 프로그램이 처음 설치할 때(학습 기록 `device.json`이 없을 때)만 Run 키에 등록한다 (`src-tauri/windows/hooks.nsh`). 업데이트 땐 건드리지 않아 메뉴에서 꺼 둔 설정이 유지된다.
+    - **고침 (2026-10-29):** 설치 파일로 덮어 설치하면 기본 스크립트가 옛 버전 제거를 먼저 돌리고, 그 제거가 Run 키의 자동 실행을 지운다 (`/UPDATE`일 때만 안 지움). 그래서 덮어 설치하면 자동 실행이 꺼졌다 → 제거 훅(PREUNINSTALL)이 켜져 있었으면 `HKCU\Software\VocaTray\RestoreAutostart`를 남기고 설치 훅이 되살린 뒤 지운다. 0.1.0·0.1.1의 제거 프로그램엔 이 훅이 없어서 그 버전 위에 0.1.2를 직접 덮어 설치하면 한 번은 꺼진다 (메뉴에서 다시 켜면 됨)
+    - Mac은 설치 프로그램이 없으니 Mac 빌드 때 앱이 처음 켤 때 켜는 식으로 따로 해야 한다
 - 첫 실행 안내: Windows는 아이콘 고정 방법, Mac은 노치 주의 (§9)
 
 ### Phase 4 — 학습 강화
@@ -391,7 +393,7 @@ npm run tauri dev
 - 발음 듣기 (웹뷰 내장 `speechSynthesis` — OS 음성 사용, 시작할 때 Windows·Mac 둘 다 확인)
   - **구현 (2026-10-29):** 클릭 카드·퀴즈 창의 🔊 (호버 카드엔 없음). en-US 음성을 골라 0.9배속. 이 PC엔 Zira·David·Mark가 있음. 영어 음성이 없는 PC에선 기본(한국어) 음성이 읽는다 — Mac은 Mac 빌드 때 확인
 - [몰라요] → 더 자주 등장 (라이트너 상자: 알면 다음 상자, 모르면 1번 상자로) — 상자 번호도 단어별 `{ …, at }` 기록이라 §6.4 규칙 그대로
-  - **구현 (2026-10-29) — 라이트너 상자 대신 단순하게:** 클릭 카드의 [몰라요]는 다음 단어로 넘기면서 그 단어를 셔플 백의 5개 뒤에 한 번 더 넣는다 (`Picker::again`, `AGAIN_GAP`). 바퀴의 원래 차례는 그대로라 그만큼 더 자주 나온다. 셔플 백처럼 저장하지 않아 앱을 다시 켜면 잊는다
+  - **구현 (2026-10-29) — 라이트너 상자 대신 단순하게:** 클릭 카드의 [몰라요]는 다음 단어로 넘기면서 그 단어를 셔플 백의 10개 뒤에 한 번 더 넣는다 (`Picker::again`, `AGAIN_GAP`=10). 바퀴의 원래 차례는 그대로라 그만큼 더 자주 나온다. 셔플 백처럼 저장하지 않아 앱을 다시 켜면 잊는다
 - 퀴즈 모드: 영어만 보이고 뜻은 클릭하거나 1~2초 뒤 공개 — 퀴즈 창으로 구현 (2026-10-28): 외운 단어를 섞어 한 바퀴, 뜻은 눌러야 보임, [맞았어요]는 그대로·[틀렸어요]는 못 외운 단어로
   - **바꿈 (2026-10-29):** 한 바퀴 대신 매번 외운 단어 전체에서 하나를 뽑는다 (같은 단어가 또 나올 수 있음). 가중치 0.5^(연속으로 맞힌 횟수) — 한 번 맞히면 다른 단어의 반, 두 번이면 1/4. [틀렸어요]는 가중치를 1로 되돌리고 못 외운 단어로 (`picker::pick_weighted`)
   - 단어마다 퀴즈 기록 `quiz: { value: { asked, correct, streak }, at }`을 학습 기록 파일에 둔다. 외운 날짜(`at`)와 따로 최근 것이 이기게 합친다. 나온·맞힌 횟수는 되돌려도 남고 외운 단어 창에 보인다
@@ -413,11 +415,16 @@ npm run tauri dev
   - 자동 실행은 레지스트리 Run 키에 exe 경로를 넣는데 "켜짐" 판단은 이름만 본다 → 설치판은 켤 때마다 지금 경로로 다시 등록한다 (개발판에서 켰던 `target\debug` 경로가 남아 있던 것을 실제로 고침)
   - 설치판이 켜져 있으면 `npm run tauri dev`의 개발 앱은 중복 실행 방지 때문에 바로 꺼진다 → 개발할 땐 설치판을 트레이에서 종료. 데이터 폴더(`%APPDATA%\com.vocatray.desktop`)는 둘이 같이 쓴다
   - 버전을 올릴 땐 `tauri.conf.json`의 `version` (설치 파일 이름과 제어판 버전에 쓰인다)
+  - **자동 업데이트 (2026-10-29, 0.1.2부터):** `tauri-plugin-updater`가 `releases/latest/download/latest.json`을 켤 때 30초 뒤·하루에 한 번·트레이 메뉴 "업데이트 확인…" 때 본다 (`src/update.rs`, 설치판에서만). 새 버전이면 물어보고 passive 모드로 설치 → 설치 프로그램이 앱을 다시 켠다
+    - **서명 키:** `~/.tauri/vocatray.key` (비밀번호 없음, `npx tauri signer generate`로 만듦, 무료). 공개 키는 `tauri.conf.json` › `plugins.updater.pubkey`. **키를 잃으면 설치된 앱이 새 버전을 못 받는다 → 따로 백업.** 코드 서명 인증서(유료, SmartScreen 경고 없애기)와는 별개
+    - `createUpdaterArtifacts: true`라 빌드 때 키가 꼭 있어야 한다: `export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/vocatray.key)" TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""` 후 `npm run tauri build`
+    - **릴리스:** `bash scripts/release.sh <바뀐 점.md>` — 버전 이름 설치 파일, `VocaTray-setup.exe`, `latest.json` 셋을 올린다
+    - 확인한 것: 로컬 서버를 보게 한 시험판 0.1.1(`--config`로 endpoint만 바꿈) → 30초 뒤 물어봄 → [지금 업데이트] → 받아서 설치 → 0.1.2로 다시 켜짐
   - **배포 (2026-10-28):** GitHub Releases `v0.1.0` (https://github.com/full-fish/vocatray/releases/tag/v0.1.0). 같은 파일을 `VocaTray_0.1.0_x64-setup.exe`와 버전 없는 `VocaTray-setup.exe` 두 이름으로 올렸다. 홈페이지(fullfish-site `public/apps/vocatray/index.html`)는 `releases/latest/download/VocaTray-setup.exe`로 연결 → **새 버전을 낼 때도 `VocaTray-setup.exe`를 꼭 같이 올려야** 홈페이지 링크가 살아 있다 (초안·사전 릴리스는 latest가 아님)
 - 설치 경로 고정 (트레이 고정 유지 — §9)
 - 구글 OAuth: 프로덕션 게시 확인 (Phase 2에서 full-fish.com 페이지로 브랜딩), 홈페이지의 "개발 중"·다운로드 안내를 출시 상태로 고치기, 로그인 화면에 "확인되지 않은 앱" 경고가 안 뜨는지 확인. 브랜드 인증(로고 표시)은 선택 — 하려면 소유 도메인의 홈페이지·개인정보처리방침 필요
 - 사용자가 많아지면 모두가 프로젝트 하나의 API 한도를 나눠 쓴다 → 확인 주기를 늘리거나 한도 증설 요청 (무료)
-- 서명: Windows는 선택 (없으면 SmartScreen 경고).
+- 코드 서명: Windows는 선택 (없으면 SmartScreen 경고, 인증서는 유료). 자동 업데이트 서명 키와 다르다
   Mac은 직접 빌드한 그 맥에선 경고가 없고, 다른 맥으로 옮기면 설정 › 개인정보 보호 및 보안 › "그래도 열기"로 연다. 남에게 배포하려면 Apple Developer 서명·공증 필요 (연 $99)
 
 ## 9. 리스크와 주의점

@@ -13,6 +13,7 @@ mod picker;
 mod placement;
 mod store;
 mod sync;
+mod update;
 mod wordbook;
 
 use std::collections::{HashMap, HashSet};
@@ -48,7 +49,7 @@ const CARD_GAP: f64 = 6.0;
 /// 단어장을 고른 적이 없을 때 쓰는 단어장.
 const DEFAULT_BOOK: &str = "middle";
 /// [몰라요]를 누른 단어는 이만큼 다른 단어를 본 뒤에 한 번 더 나온다.
-const AGAIN_GAP: usize = 5;
+const AGAIN_GAP: usize = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -553,6 +554,7 @@ fn on_menu_event(app: &AppHandle, event: MenuEvent) {
         "quiz" => return open_window(app, "quiz", "퀴즈", (340.0, 400.0)),
         "stats" => return open_window(app, "stats", "통계", (340.0, 420.0)),
         "autostart" => return toggle_autostart(app),
+        "update" => return update::check_now(app),
         _ => {}
     }
     let Some(book_id) = id.strip_prefix("book:") else {
@@ -713,6 +715,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .item(&account)
         .separator()
         .item(&autostart)
+        .text("update", "업데이트 확인…")
         .text("quit", "종료")
         .build()?;
     app.manage(BookItems(book_items));
@@ -736,6 +739,8 @@ pub fn run() {
         // 두 번째로 실행하면 아무것도 하지 않고 끝난다 — 트레이 아이콘은 항상 하나.
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             card_ready,
             memorize,
@@ -780,6 +785,7 @@ pub fn run() {
             }
             build_tray(app.handle())?;
             sync::start(app.handle().clone(), data_dir, device);
+            update::start(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())
