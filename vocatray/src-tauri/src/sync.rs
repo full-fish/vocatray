@@ -1,7 +1,7 @@
 //! 동기화 스레드 (PLAN.md §6.4)
 //! - 확인(다른 기기 기록 받아 합치기 + 내 기록 올리기): 앱을 켤 때, 로그인했을 때, 메뉴 [지금 동기화]를 눌렀을 때.
 //!   주기적으로는 확인하지 않는다. 실패하면 1분부터 30분까지 간격을 늘려 가며 다시 시도한다.
-//! - 내 기록이 바뀌면(외웠어요·단어장 변경) 1시간 모아서 올리기만 한다.
+//! - 내 기록이 바뀌면(외웠어요·단어장 변경) 10분 모아서 올리기만 한다.
 //!   그 전에 앱을 끄면 로컬엔 이미 저장돼 있으므로 다음에 켤 때 확인하면서 올린다.
 //!
 //! 네트워크는 이 스레드에서만 쓴다 → 인터넷이 느리거나 끊겨도 트레이·카드는 멈추지 않는다.
@@ -19,8 +19,8 @@ use tauri::{AppHandle, Manager};
 use crate::gdrive::{self, Error, Session};
 use crate::store::{self, Device, Progress};
 
-/// 처음 바뀐 뒤 이만큼 모아서 한 번에 올린다 — [외웠어요]를 계속 눌러도 1시간에 한 번.
-const UPLOAD_DELAY: Duration = Duration::from_secs(60 * 60);
+/// 처음 바뀐 뒤 이만큼 모아서 한 번에 올린다 — [외웠어요]를 계속 눌러도 10분에 한 번.
+const UPLOAD_DELAY: Duration = Duration::from_secs(10 * 60);
 /// 실패하면 이 간격부터 두 배씩, 최대 30분까지 늘려 다시 시도한다 (켤 때 아직 인터넷이 안 잡힌 경우 등).
 const RETRY_FIRST: Duration = Duration::from_secs(60);
 const RETRY_MAX: Duration = Duration::from_secs(30 * 60);
