@@ -7,6 +7,7 @@
 //! 이전 단어가 잠깐 비치지 않는다.
 //!
 //! 외운 단어 창(`words`)과 퀴즈 창(`quiz`)은 트레이 메뉴에서 열 때 만들고 닫으면 없앤다.
+//! 옵션을 켜면 이 창들이 카드처럼 트레이 위에 작게 뜨고, 포커스를 잃으면 닫힌다.
 
 mod gdrive;
 mod picker;
@@ -26,6 +27,7 @@ use tauri::menu::{
     CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuEvent, MenuItem, MenuItemBuilder, SubmenuBuilder,
 };
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::webview::PageLoadEvent;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Rect, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, Window, WindowEvent,
@@ -34,7 +36,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 use picker::Picker;
 use placement::{Area, place_card};
-use store::{Progress, QuizStats};
+use store::{Progress, QuizStats, Settings};
 use wordbook::{Word, WordBook};
 
 /// 마우스가 아이콘 위에 이만큼 머물러야 카드를 띄운다 — 지나가기만 해서는 카드가 뜨지 않게.
@@ -50,6 +52,8 @@ const CARD_GAP: f64 = 6.0;
 const DEFAULT_BOOK: &str = "middle";
 /// [몰라요]를 누른 단어는 이만큼 다른 단어를 본 뒤에 한 번 더 나온다.
 const AGAIN_GAP: usize = 10;
+/// 트레이 메뉴에서 여는 창 — 옵션을 켜면 작은 창으로 뜬다.
+const MENU_WINDOWS: [&str; 3] = ["words", "quiz", "stats"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -85,6 +89,7 @@ struct CardPayload {
 struct AppState {
     books: Vec<WordBook>,
     data_dir: PathBuf,
+    settings: Settings,
     progress: Progress,
     picker: Picker,
     /// 호버 카드에 마지막으로 뜬 단어 — 클릭 카드는 이 단어를 대상으로 한다 (§5.3).
@@ -99,6 +104,7 @@ struct AppState {
     hover_generation: u64,
     /// 카드 내용 번호 — 더 새 내용이 나간 뒤 늦게 온 `card_ready`는 무시한다.
     seq: u64,
+    /// 클릭 카드나 작은 창이 떠 있다 — 그동안 호버 카드를 띄우지 않는다.
     click_visible: bool,
     click_hidden_at: Option<Instant>,
 }
@@ -244,6 +250,8 @@ fn on_tray_event(app: &AppHandle, event: TrayIconEvent) {
             hide(app, Card::Hover);
             present(app, Card::Click);
         }
+        // 우클릭 메뉴로 여는 작은 창도 아이콘 옆에 뜨게 위치를 기억한다.
+        TrayIconEvent::Click { rect, .. } => lock(app).tray_rect = Some(rect),
         _ => {}
     }
 }
@@ -305,7 +313,7 @@ fn icon_area(rect: Rect) -> Area {
     Area { x: pos.x, y: pos.y, w: size.width, h: size.height }
 }
 
-fn position_near_tray(app: &AppHandle, window: &WebviewWindow, rect: Rect, height: f64) {
+fn position_near_tray(app: &AppHandle, window: &WebviewWindow, rect: Rect, width: f64, height: f64) {
     let icon = icon_area(rect);
     let Ok(Some(monitor)) = app.monitor_from_point(icon.x + icon.w / 2.0, icon.y + icon.h / 2.0)
     else {
@@ -319,7 +327,7 @@ fn position_near_tray(app: &AppHandle, window: &WebviewWindow, rect: Rect, heigh
         w: work.size.width as f64,
         h: work.size.height as f64,
     };
-    let (w, h) = (CARD_WIDTH * scale, height * scale);
+    let (w, h) = (width * scale, height * scale);
     let (x, y) = place_card(icon, w, h, work, CARD_GAP * scale);
     // 위치를 먼저 옮긴다 — 배율이 다른 모니터로 가면 창 크기가 다시 계산되므로 크기는 그다음에.
     let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
@@ -341,7 +349,7 @@ fn card_ready(app: AppHandle, card: Card, seq: u64, height: f64) {
         return;
     };
     if let Some(rect) = rect {
-        position_near_tray(&app, &window, rect, height);
+        position_near_tray(&app, &window, rect, CARD_WIDTH, height);
     }
     let _ = window.show();
     if card == Card::Click {
@@ -544,15 +552,22 @@ fn hide_click(app: AppHandle) {
     hide(&app, Card::Click);
 }
 
+/// 작은 창의 Esc — 숨기면 포커스를 잃으므로 `on_window_event`가 닫는다.
+#[tauri::command]
+fn close_popup(window: WebviewWindow) {
+    let _ = window.hide();
+}
+
 fn on_menu_event(app: &AppHandle, event: MenuEvent) {
     let id = event.id().as_ref();
     match id {
         "quit" => return app.exit(0),
         "account" => return sync::notify(app, sync::Command::ToggleAccount),
         "sync-now" => return sync::notify(app, sync::Command::SyncNow),
-        "words" => return open_window(app, "words", "외운 단어", (380.0, 520.0)),
-        "quiz" => return open_window(app, "quiz", "퀴즈", (340.0, 400.0)),
-        "stats" => return open_window(app, "stats", "통계", (340.0, 420.0)),
+        "words" => return open_window(app, "words", "외운 단어", (380.0, 520.0), (300.0, 360.0)),
+        "quiz" => return open_window(app, "quiz", "퀴즈", (340.0, 400.0), (280.0, 340.0)),
+        "stats" => return open_window(app, "stats", "통계", (340.0, 420.0), (280.0, 350.0)),
+        "popup-windows" => return toggle_popup_windows(app),
         "autostart" => return toggle_autostart(app),
         "update" => return update::check_now(app),
         _ => {}
@@ -571,25 +586,77 @@ fn on_menu_event(app: &AppHandle, event: MenuEvent) {
 }
 
 /// 외운 단어 창·퀴즈 창 — 열 때 만들고 닫으면 없앤다 (늘 켜 두는 앱이라 안 쓰는 창을 메모리에 두지 않는다).
-fn open_window(app: &AppHandle, label: &'static str, title: &'static str, (width, height): (f64, f64)) {
+fn open_window(
+    app: &AppHandle,
+    label: &'static str,
+    title: &'static str,
+    (width, height): (f64, f64),
+    (popup_width, popup_height): (f64, f64),
+) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.unminimize();
         let _ = window.set_focus();
         return;
     }
+    let popup = lock(app).settings.popup_windows;
     // 메뉴 이벤트(메인 스레드)에서 창을 만들면 Windows에서 멈출 수 있다 (WebView2) → 다른 스레드에서 만든다.
     let app = app.clone();
     std::thread::spawn(move || {
-        let url = WebviewUrl::App(format!("{label}.html").into());
-        let built = WebviewWindowBuilder::new(&app, label, url)
-            .title(format!("VocaTray · {title}"))
-            .inner_size(width, height)
-            .center()
-            .build();
-        if let Err(e) = built {
+        // 화면은 주소의 #popup으로 작은 창인지 안다 (popup.ts)
+        let url = WebviewUrl::App(format!("{label}.html{}", if popup { "#popup" } else { "" }).into());
+        let builder = WebviewWindowBuilder::new(&app, label, url).title(format!("VocaTray · {title}"));
+        let builder = if popup {
+            builder
+                .inner_size(popup_width, popup_height)
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(true)
+                .visible(false)
+                .on_page_load(move |window, load| {
+                    if load.event() == PageLoadEvent::Finished {
+                        show_popup(&window, popup_width, popup_height);
+                    }
+                })
+        } else {
+            builder.inner_size(width, height).center()
+        };
+        if let Err(e) = builder.build() {
             eprintln!("{title} 창을 열 수 없음: {e}");
         }
     });
+}
+
+/// 작은 창 — 화면을 다 읽은 뒤에 아이콘 옆으로 옮겨 보여 준다 (카드처럼 빈 창이 비치지 않게).
+fn show_popup(window: &WebviewWindow, width: f64, height: f64) {
+    let app = window.app_handle();
+    let rect = {
+        let mut s = lock(app);
+        s.click_visible = true;
+        s.tray_rect
+    };
+    if let Some(rect) = rect {
+        position_near_tray(app, window, rect, width, height);
+    }
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+/// 옵션 "창을 트레이 위에 작게 열기" — 이 컴퓨터 설정이다. 열려 있는 창은 닫아서 다음에 열 때 바뀐 모양으로 뜨게 한다.
+fn toggle_popup_windows(app: &AppHandle) {
+    {
+        let mut s = lock(app);
+        s.settings.popup_windows = !s.settings.popup_windows;
+        if let Err(e) = store::save_settings(&s.data_dir, &s.settings) {
+            eprintln!("설정 저장 실패: {e}");
+        }
+    }
+    for label in MENU_WINDOWS {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.close();
+        }
+    }
 }
 
 /// 트레이 메뉴의 "시작 시 자동 실행" 체크
@@ -669,25 +736,46 @@ fn on_window_event(window: &Window, event: &WindowEvent) {
             api.prevent_close();
             let _ = window.hide();
         }
-        WindowEvent::Focused(false) if window.label() == Card::Click.label() => {
+        WindowEvent::Focused(false) => {
+            // 작은 창은 보여 준 뒤에만 닫는다 — WebView2는 숨긴 창을 만드는 동안에도 포커스가 들어왔다 나간다.
+            let popup = MENU_WINDOWS.contains(&window.label()) && {
+                let s = lock(window.app_handle());
+                s.settings.popup_windows && s.click_visible
+            };
+            if !popup && window.label() != Card::Click.label() {
+                return;
+            }
             let _ = window.hide();
-            let mut s = lock(window.app_handle());
-            s.click_visible = false;
-            s.click_hidden_at = Some(Instant::now());
+            {
+                let mut s = lock(window.app_handle());
+                s.click_visible = false;
+                s.click_hidden_at = Some(Instant::now());
+            }
+            if popup {
+                // 포커스 이벤트를 처리하는 도중에 창을 없애지 않는다 — 다른 스레드에서 부르면 처리가 끝난 뒤에 닫힌다.
+                let window = window.clone();
+                std::thread::spawn(move || {
+                    let _ = window.close();
+                });
+            }
+        }
+        // 어떻게 닫혔든(Alt+F4·옵션 끄기) 호버 카드가 다시 뜨고, 다음 작은 창이 만들어지다 닫히지 않게.
+        WindowEvent::Destroyed if MENU_WINDOWS.contains(&window.label()) => {
+            lock(window.app_handle()).click_visible = false;
         }
         _ => {}
     }
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let (books, selected) = {
+    let (books, selected, popup_windows) = {
         let s = lock(app);
         let books: Vec<(String, String)> = s
             .books
             .iter()
             .map(|b| (b.id.clone(), format!("{} ({}단어)", b.title, b.words.len())))
             .collect();
-        (books, s.book().id.clone())
+        (books, s.book().id.clone(), s.settings.popup_windows)
     };
     let mut submenu = SubmenuBuilder::new(app, "단어장");
     let mut book_items = Vec::new();
@@ -704,6 +792,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let autostart = CheckMenuItemBuilder::with_id("autostart", "시작 시 자동 실행")
         .checked(app.autolaunch().is_enabled().unwrap_or(false))
         .build(app)?;
+    let popup_item = CheckMenuItemBuilder::with_id("popup-windows", "창을 트레이 위에 작게 열기")
+        .checked(popup_windows)
+        .build(app)?;
+    let options = SubmenuBuilder::new(app, "옵션")
+        .item(&autostart)
+        .item(&popup_item)
+        .text("update", "업데이트 확인…")
+        .build()?;
     let menu = MenuBuilder::new(app)
         .item(&submenu.build()?)
         .text("words", "외운 단어…")
@@ -714,8 +810,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .item(&sync_now)
         .item(&account)
         .separator()
-        .item(&autostart)
-        .text("update", "업데이트 확인…")
+        .item(&options)
         .text("quit", "종료")
         .build()?;
     app.manage(BookItems(book_items));
@@ -748,6 +843,7 @@ pub fn run() {
             next_word,
             previous_word,
             hide_click,
+            close_popup,
             memorized_words,
             forget_word,
             quiz_word,
@@ -765,6 +861,7 @@ pub fn run() {
             app.manage(Mutex::new(AppState {
                 books: wordbook::bundled()?,
                 data_dir: data_dir.clone(),
+                settings: store::load_settings(&data_dir),
                 progress,
                 picker: Picker::new(),
                 current: None,
@@ -804,6 +901,7 @@ mod tests {
         AppState {
             books: vec![WordBook { id: DEFAULT_BOOK.into(), title: "테스트".into(), source: String::new(), words }],
             data_dir: PathBuf::new(),
+            settings: Settings::default(),
             progress: Progress::new("pc"),
             picker: Picker::with_rng(fastrand::Rng::with_seed(1)),
             current: None,

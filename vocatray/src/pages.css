@@ -60,7 +60,8 @@
 
 #search,
 #book,
-#dir {
+#dir,
+#answer {
   flex: 1;
   min-width: 0;
   padding: 5px 8px;
@@ -128,12 +129,30 @@
 
 /* 퀴즈 창 */
 
-.quiz {
+/* 문제만 스크롤한다 — 작은 창에서도 아래 버튼이 늘 보이게 */
+.quiz #question {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
 .quiz #word {
   font-size: 22px;
+}
+
+#result {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+#result.wrong {
+  color: var(--danger);
+}
+
+#spell {
+  margin-top: 10px;
 }
 
 #reveal {
@@ -161,7 +180,9 @@
 .quiz:not(.revealed) #examples,
 .quiz:not(.revealed)[data-dir="en"] #senses,
 .quiz:not(.revealed)[data-dir="ko"] header,
-.quiz:not(.revealed)[data-dir="ko"] .sense .phon {
+.quiz:not(.revealed)[data-dir="ko"] .sense .phon,
+.quiz:not(.revealed)[data-dir="spell"] header,
+.quiz:not(.revealed)[data-dir="spell"] .sense .phon {
   display: none;
 }
 

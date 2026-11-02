@@ -1,6 +1,7 @@
 // 외운 단어 창 — 최근에 외운 것부터, 검색, [못 외웠어요]로 되돌리기
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import "./popup";
 import { $, el, type Word } from "./word";
 
 type MemorizedWord = { key: string; at: string; word: Word; quiz: { asked: number; correct: number } };

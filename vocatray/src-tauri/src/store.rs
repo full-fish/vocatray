@@ -163,6 +163,26 @@ pub fn save_device(dir: &Path, device: &Device) -> io::Result<()> {
     write_atomic(&dir.join("device.json"), &serde_json::to_vec_pretty(device)?)
 }
 
+/// `settings.json` — 이 컴퓨터 설정이라 동기화하지 않는다.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Settings {
+    /// 외운 단어·퀴즈·통계를 따로 된 창 대신 트레이 위에 작게 연다
+    pub popup_windows: bool,
+}
+
+/// 없거나 깨져 있으면 기본값 (설정 파일 하나 때문에 앱이 안 켜지면 안 되므로).
+pub fn load_settings(dir: &Path) -> Settings {
+    fs::read_to_string(dir.join("settings.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+pub fn save_settings(dir: &Path, settings: &Settings) -> io::Result<()> {
+    write_atomic(&dir.join("settings.json"), &serde_json::to_vec_pretty(settings)?)
+}
+
 pub fn progress_path(dir: &Path, device_id: &str) -> PathBuf {
     dir.join(format!("progress.{device_id}.json"))
 }
@@ -238,6 +258,17 @@ mod tests {
         let second = load_or_create_device(&dir.0).unwrap();
         assert_eq!(first, second);
         assert!(first.device_id.len() > 5);
+    }
+
+    #[test]
+    fn settings_are_saved_and_broken_file_falls_back_to_default() {
+        let dir = TempDir::new();
+        assert_eq!(load_settings(&dir.0), Settings::default());
+        let settings = Settings { popup_windows: true };
+        save_settings(&dir.0, &settings).unwrap();
+        assert_eq!(load_settings(&dir.0), settings);
+        fs::write(dir.0.join("settings.json"), "{ 깨짐").unwrap();
+        assert_eq!(load_settings(&dir.0), Settings::default());
     }
 
     #[test]

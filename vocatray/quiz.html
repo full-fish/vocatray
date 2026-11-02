@@ -10,7 +10,7 @@
   </head>
 
   <body>
-    <!-- data-dir: en = 영어를 보고 뜻 맞히기, ko = 뜻을 보고 영어 맞히기. 무엇을 가릴지는 pages.css가 정한다 -->
+    <!-- data-dir: en = 영어를 보고 뜻 맞히기, ko = 뜻을 보고 영어 맞히기, spell = 뜻을 보고 영어 쓰기. 무엇을 가릴지는 pages.css가 정한다 -->
     <main id="quiz" class="page quiz" data-dir="en">
       <div class="bar">
         <select id="book" aria-label="퀴즈 범위">
@@ -19,10 +19,12 @@
         <select id="dir" aria-label="퀴즈 방향">
           <option value="en">영어 → 뜻</option>
           <option value="ko">뜻 → 영어</option>
+          <option value="spell">뜻 → 영어 쓰기</option>
         </select>
       </div>
       <p id="score" class="hint"></p>
       <section id="question" hidden>
+        <p id="result" hidden></p>
         <header>
           <h1 id="word"></h1>
           <span id="phonetic"></span>
@@ -30,11 +32,19 @@
         </header>
         <ul id="senses"></ul>
         <button id="reveal" type="button"></button>
+        <!-- 맞춤법 검사가 켜져 있으면 빨간 줄로 답이 틀렸는지 알려 버린다 -->
+        <form id="spell" class="bar" hidden>
+          <input id="answer" type="text" placeholder="영어로 쓰기" aria-label="영어 단어 쓰기" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <button type="submit" class="btn accent">확인</button>
+        </form>
         <div id="examples"></div>
       </section>
       <div id="grade" class="buttons" hidden>
         <button id="right" type="button" class="btn accent">⭕ 맞았어요</button>
         <button id="wrong" type="button" class="btn danger" title="못 외웠어요로 바뀌어 카드에 다시 나와요">✗ 틀렸어요</button>
+      </div>
+      <div id="after" class="buttons" hidden>
+        <button id="next" type="button" class="btn accent">다음 ▶</button>
       </div>
       <p id="empty" class="hint" hidden>
         이 단어장엔 아직 외운 단어가 없어요. 카드에서 [외웠어요]를 누른 단어로 퀴즈를 내요.
