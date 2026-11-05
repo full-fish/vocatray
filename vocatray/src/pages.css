@@ -60,6 +60,7 @@
 
 #search,
 #book,
+#scope,
 #dir,
 #answer {
   flex: 1;
@@ -71,6 +72,42 @@
   color: var(--text);
   background: var(--bg);
   user-select: text;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+/* 글자 길이만큼 차지하고 남는 폭을 나눠 갖는다 — 똑같이 나누면 작은 창에서 긴 이름이 겹친다 */
+.tabs button {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: -1px;
+  padding: 4px 4px 5px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* 숫자는 이름 아래 줄 — 자릿수가 늘어도 탭 폭이 그대로라 작은 창에서도 안 잘린다 */
+.tabs .count {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 #list {
@@ -116,6 +153,11 @@
   margin-left: auto;
 }
 
+/* 진짜 외운 단어 — 줄을 연두색으로 깐다 (글자를 연두색으로 하면 흰 바탕에서 잘 안 읽힌다) */
+.row.mastered {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+
 /* 줄마다 있는 버튼이라 빨간 바탕 대신 글자만 */
 .row .btn {
   color: var(--danger);
@@ -128,6 +170,17 @@
 }
 
 /* 퀴즈 창 */
+
+/* 위의 고르기 셋 — 글자 길이만큼 차지하고, 작은 창에서 한 줄에 안 들어가면 다음 줄로 */
+.quiz > .bar {
+  flex-wrap: wrap;
+}
+
+.quiz #book,
+.quiz #scope,
+.quiz #dir {
+  flex: 1 1 auto;
+}
 
 /* 문제만 스크롤한다 — 작은 창에서도 아래 버튼이 늘 보이게 */
 .quiz #question {

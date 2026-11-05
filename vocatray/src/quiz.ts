@@ -1,5 +1,6 @@
-// 퀴즈 창 — 외운 단어 전체에서 하나씩 뽑는다(맞힌 단어일수록 덜 나옴). 답은 눌러야 보인다.
-// 방향: 영어 → 뜻 / 뜻 → 영어 / 뜻 → 영어 쓰기. [틀렸어요]와 쓰기 오답은 그 단어를 "못 외웠어요"로 되돌린다.
+// 퀴즈 창 — 외운 단어(또는 모든 단어)에서 하나씩 뽑는다(맞힌 단어일수록 덜 나오고, 5번 연속 맞히면 안 나옴). 답은 눌러야 보인다.
+// 방향: 영어 → 뜻 / 뜻 → 영어 / 뜻 → 영어 쓰기. [틀렸어요]와 쓰기 오답은 그 단어를 "못 외웠어요"로 되돌리고,
+// 모든 단어에서 안 외운 단어를 맞히면 "외웠어요"로 친다.
 import { invoke } from "@tauri-apps/api/core";
 import "./popup";
 import { $, el, renderWord, speak, type Word } from "./word";
@@ -11,6 +12,7 @@ const question = $("question");
 const reveal = $("reveal");
 const grade = $("grade");
 const book = $<HTMLSelectElement>("book");
+const scope = $<HTMLSelectElement>("scope");
 const dir = $<HTMLSelectElement>("dir");
 const spell = $<HTMLFormElement>("spell");
 const answer = $<HTMLInputElement>("answer");
@@ -83,12 +85,16 @@ function showScore() {
 }
 
 async function show() {
-  current = await invoke<MemorizedWord | null>("quiz_word", { book: book.value || null });
+  const all = scope.value === "all";
+  current = await invoke<MemorizedWord | null>("quiz_word", { book: book.value || null, all });
   question.hidden = !current;
   question.scrollTop = 0;
   setRevealed(false);
   if (!current) grade.hidden = true;
   $("empty").hidden = current !== null;
+  $("empty").textContent = all
+    ? "이 단어장의 단어를 모두 5번 연속 맞혔어요! 🎉"
+    : "이 단어장엔 퀴즈에 낼 외운 단어가 없어요. 카드에서 [외웠어요]를 누른 단어로 퀴즈를 내요. 5번 연속 맞힌 단어는 더 내지 않아요.";
   $("score").hidden = !current;
   showScore();
   answer.value = "";
@@ -138,6 +144,10 @@ book.addEventListener("change", () => {
   localStorage.setItem("quiz-book", book.value);
   show();
 });
+scope.addEventListener("change", () => {
+  localStorage.setItem("quiz-scope", scope.value);
+  show();
+});
 // 방향을 바꾸면 지금 문제를 그대로 두고 가리는 쪽만 바꾼다.
 // 쓰기로 들어가거나 나올 때만 새 문제 — 이미 본 단어를 쓰거나 채점한 문제를 또 채점하지 않게.
 dir.addEventListener("change", () => {
@@ -153,6 +163,7 @@ async function start() {
   book.append(...books.map((b) => new Option(b.title, b.id)));
   // 작은 창은 포커스를 잃을 때마다 닫히므로 고른 범위·방향을 기억해 둔다
   book.value = localStorage.getItem("quiz-book") ?? "";
+  scope.value = localStorage.getItem("quiz-scope") ?? "memorized";
   dir.value = localStorage.getItem("quiz-dir") ?? "en";
   setDir();
   show();
