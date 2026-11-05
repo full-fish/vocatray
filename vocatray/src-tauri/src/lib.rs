@@ -128,6 +128,24 @@ impl AppState {
             .collect()
     }
 
+    /// 퀴즈에 낼 단어 — `book` 단어장(`None`이면 모든 단어장)에서 `all`이면 외웠든 안 외웠든 모두, 아니면 외운 단어만.
+    /// 진짜 외운 단어는 뺀다. 같은 단어가 여러 단어장에 있으면 지금 단어장의 뜻.
+    fn quiz_candidates(&self, book: Option<&str>, all: bool) -> Vec<(String, &Word)> {
+        let books: Vec<&WordBook> = match book.and_then(|id| self.books.iter().find(|b| b.id == id)) {
+            Some(b) => vec![b],
+            None => std::iter::once(self.book()).chain(&self.books).collect(),
+        };
+        let mut seen = HashSet::new();
+        books
+            .into_iter()
+            .flat_map(|b| &b.words)
+            .map(|w| (w.key(), w))
+            .filter(|(key, _)| seen.insert(key.clone()))
+            .filter(|(key, _)| all || self.progress.is_memorized(key))
+            .filter(|(key, _)| !self.progress.quiz_stats(key).mastered())
+            .collect()
+    }
+
     fn advance(&mut self) {
         let candidates = self.candidates();
         self.previous = self.current.take();
@@ -413,6 +431,8 @@ struct MemorizedWord {
     at: String,
     word: Word,
     quiz: QuizStats,
+    /// 퀴즈를 연속으로 `store::MASTERED_STREAK`번 맞힌 "진짜 외운 단어"
+    mastered: bool,
 }
 
 /// 외운 단어 — 최근에 외운 것부터. 외운 기록은 단어장과 상관없이 단어마다 하나라
@@ -422,22 +442,17 @@ fn memorized_words(app: AppHandle) -> Vec<MemorizedWord> {
     memorized(&lock(&app))
 }
 
-/// 퀴즈 한 문제 — 외운 단어 전체에서 가중치대로 뽑는다 (picker::pick_weighted). 외운 단어가 없으면 `None`.
+/// 퀴즈 한 문제 — `AppState::quiz_candidates`에서 가중치대로 뽑는다 (picker::pick_weighted). 낼 단어가 없으면 `None`.
 #[tauri::command]
-fn quiz_word(app: AppHandle, book: Option<String>) -> Option<MemorizedWord> {
-    let mut words = {
-        let s = lock(&app);
-        let mut words = memorized(&s);
-        // 단어장을 고르면 그 단어장에 있는 외운 단어만 (`None`이면 전체)
-        if let Some(b) = book.and_then(|id| s.books.iter().find(|b| b.id == id)) {
-            let keys: HashSet<String> = b.words.iter().map(Word::key).collect();
-            words.retain(|m| keys.contains(&m.key));
-        }
-        words
-    };
-    let streaks: Vec<u32> = words.iter().map(|m| m.quiz.streak).collect();
+fn quiz_word(app: AppHandle, book: Option<String>, all: bool) -> Option<MemorizedWord> {
+    let s = lock(&app);
+    let candidates = s.quiz_candidates(book.as_deref(), all);
+    let quiz: Vec<QuizStats> = candidates.iter().map(|(key, _)| s.progress.quiz_stats(key)).collect();
+    let streaks: Vec<u32> = quiz.iter().map(|q| q.streak).collect();
     let i = picker::pick_weighted(&streaks, fastrand::f64())?;
-    Some(words.swap_remove(i))
+    let (key, word) = &candidates[i];
+    let at = s.progress.words.get(key).map(|r| r.at.clone()).unwrap_or_default();
+    Some(MemorizedWord { key: key.clone(), at, word: (*word).clone(), quiz: quiz[i], mastered: false })
 }
 
 #[derive(Serialize)]
@@ -500,6 +515,7 @@ fn stats(app: AppHandle) -> Stats {
 }
 
 /// 퀴즈 채점. 틀리면 그 단어의 가중치를 처음으로 되돌리고 "못 외웠어요"로 바꿔 카드에 다시 나오게 한다.
+/// 모든 단어에서 낸 문제를 맞히면 외운 단어로 친다 (처음 깐 사람이 아는 단어를 퀴즈로 걸러 내게).
 #[tauri::command]
 fn quiz_answer(app: AppHandle, key: String, correct: bool) {
     {
@@ -508,6 +524,8 @@ fn quiz_answer(app: AppHandle, key: String, correct: bool) {
         s.progress.record_quiz(&key, correct, at.clone(), &store::local_day(0));
         if !correct {
             s.progress.set_memorized(&key, false, at);
+        } else if !s.progress.is_memorized(&key) {
+            s.progress.set_memorized(&key, true, at);
         }
         s.save();
     }
@@ -527,7 +545,7 @@ fn memorized(s: &AppState) -> Vec<MemorizedWord> {
         .filter_map(|(key, record)| {
             let word = (*index.get(key)?).clone();
             let quiz = s.progress.quiz_stats(key);
-            Some(MemorizedWord { key: key.clone(), at: record.at.clone(), word, quiz })
+            Some(MemorizedWord { key: key.clone(), at: record.at.clone(), word, quiz, mastered: quiz.mastered() })
         })
         .collect();
     words.sort_by(|a, b| b.at.cmp(&a.at));
@@ -964,6 +982,22 @@ mod tests {
         assert_eq!(s.candidates().len(), 0);
         s.progress.set_memorized("a", false, store::now());
         assert_eq!(s.candidates(), ["a"]);
+    }
+
+    #[test]
+    fn quiz_skips_mastered_words_and_can_include_unmemorized_ones() {
+        let mut s = state(&["a", "b", "c"]);
+        let now = store::now();
+        for key in ["a", "b"] {
+            s.progress.set_memorized(key, true, now.clone());
+        }
+        for _ in 0..store::MASTERED_STREAK {
+            s.progress.record_quiz("b", true, now.clone(), "2026-11-05");
+        }
+        let keys = |all| s.quiz_candidates(None, all).into_iter().map(|(k, _)| k).collect::<Vec<_>>();
+        assert_eq!(keys(false), ["a"], "외운 단어 중 진짜 외운 b는 빠진다");
+        assert_eq!(keys(true), ["a", "c"], "안 외운 c도 나온다");
+        assert!(s.quiz_candidates(Some("없는 단어장"), false).len() == 1, "없는 단어장이면 모든 단어장");
     }
 
     #[test]

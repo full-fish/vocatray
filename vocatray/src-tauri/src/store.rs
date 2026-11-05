@@ -45,6 +45,15 @@ pub struct QuizStats {
     pub streak: u32,
 }
 
+/// 퀴즈를 이만큼 연속으로 맞히면 "진짜 외운 단어" — 더는 퀴즈에 내지 않는다
+pub const MASTERED_STREAK: u32 = 5;
+
+impl QuizStats {
+    pub fn mastered(&self) -> bool {
+        self.streak >= MASTERED_STREAK
+    }
+}
+
 /// 퀴즈에 나온 횟수 · 맞힌 횟수 (하루치 또는 기간 합계)
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct QuizCount {
@@ -80,8 +89,13 @@ impl Progress {
         self.words.get(key).is_some_and(|r| r.memorized)
     }
 
+    /// 못 외웠어요로 되돌리면 연속으로 맞힌 횟수도 처음부터 — 다시 외우자마자 진짜 외운 단어가 되지 않게
     pub fn set_memorized(&mut self, key: &str, memorized: bool, at: String) {
-        let quiz = self.words.get(key).and_then(|r| r.quiz.clone());
+        let mut quiz = self.words.get(key).and_then(|r| r.quiz.clone());
+        if let Some(q) = quiz.as_mut().filter(|q| !memorized && q.value.streak > 0) {
+            q.value.streak = 0;
+            q.at = at.clone();
+        }
         self.words.insert(key.to_string(), WordRecord { memorized, at, quiz });
     }
 
@@ -90,9 +104,13 @@ impl Progress {
     }
 
     /// 퀴즈 채점 — 맞히면 가중치가 반으로, 틀리면 처음(1)으로 돌아간다. 나온·맞힌 횟수는 쌓이기만 한다.
-    /// `day`(이 컴퓨터 날짜)의 이 기기 횟수에도 더한다.
+    /// `day`(이 컴퓨터 날짜)의 이 기기 횟수에도 더한다. 처음 보는 단어(모든 단어에서 낸 문제)면 못 외운 단어로 기록을 만든다.
     pub fn record_quiz(&mut self, key: &str, correct: bool, at: String, day: &str) {
-        let Some(record) = self.words.get_mut(key) else { return };
+        let record = self.words.entry(key.to_string()).or_insert_with(|| WordRecord {
+            memorized: false,
+            at: at.clone(),
+            quiz: None,
+        });
         let mut stats = record.quiz.as_ref().map(|q| q.value).unwrap_or_default();
         stats.asked += 1;
         if correct {
@@ -486,6 +504,33 @@ mod tests {
         p.set_memorized("apple", false, T2.into());
         p.set_memorized("apple", true, T2.into());
         assert_eq!(p.quiz_stats("apple").asked, 3);
+    }
+
+    #[test]
+    fn five_in_a_row_is_mastered_and_forgetting_starts_over() {
+        let mut p = Progress::new("pc");
+        p.set_memorized("apple", true, T1.into());
+        for _ in 0..MASTERED_STREAK - 1 {
+            p.record_quiz("apple", true, T1.into(), D1);
+        }
+        assert!(!p.quiz_stats("apple").mastered());
+        p.record_quiz("apple", true, T1.into(), D1);
+        assert!(p.quiz_stats("apple").mastered());
+
+        // [못 외웠어요] → 연속 횟수만 처음부터, 나온·맞힌 횟수는 남는다. 다른 기기에도 이기게 시각을 바꾼다
+        p.set_memorized("apple", false, T2.into());
+        p.set_memorized("apple", true, T2.into());
+        assert_eq!(p.quiz_stats("apple"), QuizStats { asked: 5, correct: 5, streak: 0 });
+        assert_eq!(p.words["apple"].quiz.as_ref().unwrap().at, T2);
+    }
+
+    #[test]
+    fn quiz_on_a_new_word_creates_a_not_memorized_record() {
+        let mut p = Progress::new("pc");
+        p.record_quiz("apple", true, T1.into(), D1);
+        assert!(!p.is_memorized("apple"));
+        assert_eq!(p.quiz_stats("apple").asked, 1);
+        assert_eq!(p.quiz_since(D1).asked, 1);
     }
 
     #[test]
