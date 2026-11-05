@@ -45,6 +45,13 @@ pub struct QuizStats {
     pub streak: u32,
 }
 
+/// 퀴즈에 나온 횟수 · 맞힌 횟수 (하루치 또는 기간 합계)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct QuizCount {
+    pub asked: u32,
+    pub correct: u32,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Progress {
@@ -53,6 +60,10 @@ pub struct Progress {
     pub selected_book: Option<Stamped<String>>,
     #[serde(default)]
     pub words: BTreeMap<String, WordRecord>,
+    /// 기간별 정답률용 — 기기 ID → 날짜(그 컴퓨터 날짜, `local_day`) → 그날 퀴즈 횟수.
+    /// 더하는 값이라 기기마다 따로 세고 읽을 때 더한다 — 하나로 세면 합칠 때 최근 것만 남거나 두 번 세진다.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub quiz_days: BTreeMap<String, BTreeMap<String, QuizCount>>,
 }
 
 impl Progress {
@@ -79,7 +90,8 @@ impl Progress {
     }
 
     /// 퀴즈 채점 — 맞히면 가중치가 반으로, 틀리면 처음(1)으로 돌아간다. 나온·맞힌 횟수는 쌓이기만 한다.
-    pub fn record_quiz(&mut self, key: &str, correct: bool, at: String) {
+    /// `day`(이 컴퓨터 날짜)의 이 기기 횟수에도 더한다.
+    pub fn record_quiz(&mut self, key: &str, correct: bool, at: String, day: &str) {
         let Some(record) = self.words.get_mut(key) else { return };
         let mut stats = record.quiz.as_ref().map(|q| q.value).unwrap_or_default();
         stats.asked += 1;
@@ -90,6 +102,20 @@ impl Progress {
             stats.streak = 0;
         }
         record.quiz = Some(Stamped { value: stats, at });
+        let count = self.quiz_days.entry(self.device.clone()).or_default().entry(day.to_string()).or_default();
+        count.asked += 1;
+        count.correct += u32::from(correct);
+    }
+
+    /// `first_day`(그날 포함)부터 모든 기기에서 푼 퀴즈 횟수
+    pub fn quiz_since(&self, first_day: &str) -> QuizCount {
+        let mut sum = QuizCount::default();
+        let days = self.quiz_days.values().flat_map(|days| days.iter());
+        for (_, count) in days.filter(|(day, _)| day.as_str() >= first_day) {
+            sum.asked += count.asked;
+            sum.correct += count.correct;
+        }
+        sum
     }
 
     pub fn selected_book(&self) -> Option<&str> {
@@ -135,8 +161,25 @@ impl Progress {
                 changed = true;
             }
         }
+        // 기기마다 하루 횟수는 늘기만 한다 → 칸마다 큰 쪽이 그 기기의 최신 값 (더하지 않으니 두 번 세지 않는다)
+        for (device, days) in &other.quiz_days {
+            let mine = self.quiz_days.entry(device.clone()).or_default();
+            for (day, theirs) in days {
+                let count = mine.entry(day.clone()).or_default();
+                if (theirs.asked, theirs.correct) > (count.asked, count.correct) {
+                    *count = *theirs;
+                    changed = true;
+                }
+            }
+        }
         changed
     }
+}
+
+/// 이 컴퓨터 날짜로 `days_ago`일 전 (`0`이면 오늘, 예: `2026-11-05`).
+/// 자릿수가 늘 같아서 문자열 비교가 곧 날짜 비교다 (`quiz_since`가 이것에 기댄다).
+pub fn local_day(days_ago: u64) -> String {
+    (chrono::Local::now().date_naive() - chrono::Days::new(days_ago)).format("%Y-%m-%d").to_string()
 }
 
 /// 기록 시각 — UTC, 밀리초까지 (예: `2026-10-27T12:03:00.123Z`).
@@ -386,14 +429,58 @@ mod tests {
         assert_eq!(pc, before);
     }
 
+    const D1: &str = "2026-10-27";
+    const D2: &str = "2026-11-03";
+
+    #[test]
+    fn quiz_days_are_counted_per_device_and_summed_since_a_day() {
+        let mut pc = Progress::new("pc");
+        pc.set_memorized("apple", true, T1.into());
+        pc.record_quiz("apple", true, T1.into(), D1);
+        pc.record_quiz("apple", false, T1.into(), D2);
+        pc.record_quiz("apple", true, T2.into(), D2);
+        let mut mac = Progress::new("mac");
+        mac.set_memorized("apple", true, T1.into());
+        mac.record_quiz("apple", true, T2.into(), D2);
+        pc.merge(&mac);
+
+        assert_eq!(pc.quiz_days["pc"][D2], QuizCount { asked: 2, correct: 1 });
+        assert_eq!(pc.quiz_since(D2), QuizCount { asked: 3, correct: 2 }); // 두 기기 합
+        assert_eq!(pc.quiz_since(D1), QuizCount { asked: 4, correct: 3 });
+        assert_eq!(pc.quiz_since("2026-11-04"), QuizCount::default());
+    }
+
+    #[test]
+    fn merge_quiz_days_takes_larger_count_without_double_counting() {
+        let mut pc = Progress::new("pc");
+        pc.set_memorized("apple", true, T1.into());
+        pc.record_quiz("apple", true, T1.into(), D1);
+        let mut mac = Progress::new("mac");
+        mac.merge(&pc); // 맥 파일에 PC의 1문제가 실려 있다
+        pc.record_quiz("apple", true, T2.into(), D1); // 그 뒤 PC에서 한 문제 더
+
+        assert!(!pc.merge(&mac)); // 옛 값이 실려 와도 그대로
+        assert_eq!(pc.quiz_since(D1).asked, 2);
+        assert!(mac.merge(&pc));
+        assert!(!mac.merge(&pc)); // 같은 걸 또 합쳐도 늘지 않는다
+        assert_eq!(mac.quiz_since(D1).asked, 2);
+    }
+
+    #[test]
+    fn local_day_is_zero_padded_and_counts_back() {
+        let today = local_day(0);
+        assert_eq!(today.len(), 10);
+        assert!(local_day(6) < today && local_day(29) < local_day(6));
+    }
+
     #[test]
     fn quiz_wrong_resets_streak_but_keeps_counts() {
         let mut p = Progress::new("pc");
         p.set_memorized("apple", true, T1.into());
-        p.record_quiz("apple", true, T1.into());
-        p.record_quiz("apple", true, T1.into());
+        p.record_quiz("apple", true, T1.into(), D1);
+        p.record_quiz("apple", true, T1.into(), D1);
         assert_eq!(p.quiz_stats("apple"), QuizStats { asked: 2, correct: 2, streak: 2 });
-        p.record_quiz("apple", false, T2.into());
+        p.record_quiz("apple", false, T2.into(), D1);
         assert_eq!(p.quiz_stats("apple"), QuizStats { asked: 3, correct: 2, streak: 0 });
         // 못 외웠어요로 되돌리고 다시 외워도 퀴즈 기록은 남는다
         p.set_memorized("apple", false, T2.into());
@@ -406,7 +493,7 @@ mod tests {
         let mut pc = Progress::new("pc");
         pc.set_memorized("apple", true, T1.into());
         let mut mac = pc.clone();
-        mac.record_quiz("apple", true, T2.into());
+        mac.record_quiz("apple", true, T2.into(), D1);
 
         assert!(pc.merge(&mac));
         assert_eq!(pc.quiz_stats("apple").correct, 1);

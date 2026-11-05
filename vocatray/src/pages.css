@@ -272,3 +272,17 @@
 .day-label {
   color: var(--muted);
 }
+
+.quiz-periods {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-periods li {
+  display: flex;
+  justify-content: space-between;
+}
