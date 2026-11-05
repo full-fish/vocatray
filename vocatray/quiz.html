@@ -27,7 +27,11 @@
           <option value="spell">뜻 → 영어 쓰기</option>
         </select>
       </div>
-      <p id="score" class="hint"></p>
+      <!-- 왼쪽은 이번에 푼 것, 오른쪽은 지금 단어의 퀴즈 기록 -->
+      <p id="score" class="hint">
+        <span id="tally"></span>
+        <span id="word-score" title="이 단어를 퀴즈에서 맞힌 횟수/나온 횟수, 지금 연속으로 맞힌 횟수 (5번 연속이면 더 안 나와요)"></span>
+      </p>
       <section id="question" hidden>
         <p id="result" hidden></p>
         <header>
