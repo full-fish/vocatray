@@ -36,7 +36,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 use picker::Picker;
 use placement::{Area, place_card};
-use store::{Progress, QuizStats, Settings};
+use store::{Progress, QuizCount, QuizStats, Settings};
 use wordbook::{Word, WordBook};
 
 /// 마우스가 아이콘 위에 이만큼 머물러야 카드를 띄운다 — 지나가기만 해서는 카드가 뜨지 않게.
@@ -468,6 +468,10 @@ struct Stats {
     memorized_at: Vec<String>,
     quiz_asked: u32,
     quiz_correct: u32,
+    /// 최근 30일 · 7일 · 오늘 (오늘 포함, 내 컴퓨터 날짜) — 날짜별 횟수는 0.1.7부터 센다
+    quiz_month: QuizCount,
+    quiz_week: QuizCount,
+    quiz_today: QuizCount,
 }
 
 /// 통계 창
@@ -489,6 +493,9 @@ fn stats(app: AppHandle) -> Stats {
         memorized_at: records.clone().filter(|r| r.memorized).map(|r| r.at.clone()).collect(),
         quiz_asked: records.clone().filter_map(|r| r.quiz.as_ref()).map(|q| q.value.asked).sum(),
         quiz_correct: records.filter_map(|r| r.quiz.as_ref()).map(|q| q.value.correct).sum(),
+        quiz_month: s.progress.quiz_since(&store::local_day(29)),
+        quiz_week: s.progress.quiz_since(&store::local_day(6)),
+        quiz_today: s.progress.quiz_since(&store::local_day(0)),
     }
 }
 
@@ -498,7 +505,7 @@ fn quiz_answer(app: AppHandle, key: String, correct: bool) {
     {
         let mut s = lock(&app);
         let at = store::now();
-        s.progress.record_quiz(&key, correct, at.clone());
+        s.progress.record_quiz(&key, correct, at.clone(), &store::local_day(0));
         if !correct {
             s.progress.set_memorized(&key, false, at);
         }

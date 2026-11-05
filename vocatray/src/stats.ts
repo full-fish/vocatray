@@ -1,14 +1,18 @@
-// 통계 창 — 단어장별 진도, 최근 7일 외운 단어 수, 퀴즈 정답률
+// 통계 창 — 단어장별 진도, 최근 7일 외운 단어 수, 퀴즈 정답률 (전체, 최근 한 달, 일주일, 오늘)
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./popup";
 import { $, el } from "./word";
 
+type QuizCount = { asked: number; correct: number };
 type Stats = {
   books: { title: string; total: number; memorized: number }[];
   memorizedAt: string[];
   quizAsked: number;
   quizCorrect: number;
+  quizMonth: QuizCount;
+  quizWeek: QuizCount;
+  quizToday: QuizCount;
 };
 
 const percent = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));
@@ -55,10 +59,21 @@ function render(s: Stats) {
   const week = days.reduce((sum, d) => sum + d.count, 0);
   $("days-note").textContent = `이번 7일 ${week}개 · 지금까지 외운 단어 ${s.memorizedAt.length}개`;
 
-  $("quiz-summary").textContent =
-    s.quizAsked === 0
-      ? "아직 푼 문제가 없어요."
-      : `${s.quizAsked}문제 중 ${s.quizCorrect}개 맞힘 · 정답률 ${percent(s.quizCorrect, s.quizAsked)}%`;
+  const periods: [string, QuizCount][] = [
+    ["전체", { asked: s.quizAsked, correct: s.quizCorrect }],
+    ["최근 한 달", s.quizMonth],
+    ["최근 일주일", s.quizWeek],
+    ["오늘", s.quizToday],
+  ];
+  $("quiz-empty").hidden = s.quizAsked > 0;
+  $("quiz").replaceChildren(
+    ...(s.quizAsked === 0 ? [] : periods).map(([label, c]) => {
+      const li = el("li", "", "");
+      const text = c.asked === 0 ? "푼 문제 없음" : `${c.correct} / ${c.asked} 맞힘 (${percent(c.correct, c.asked)}%)`;
+      li.append(el("span", "", label), el("span", "hint", text));
+      return li;
+    }),
+  );
 }
 
 async function load() {
