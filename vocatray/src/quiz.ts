@@ -32,13 +32,36 @@ function setRevealed(revealed: boolean) {
   after.hidden = !revealed || !isSpell();
 }
 
-/** 예문에서 단어 자리를 빈칸으로 바꾼다. 그대로 없으면 변화형(adults, decided, applied)을 찾고,
- *  그래도 없으면(blew, teeth 같은 불규칙형) null */
+// 예문에 불규칙형으로 들어간 단어 — 규칙 변화로는 못 찾는다. 예문을 불규칙형으로 바꾸면 여기에도 더한다
+const IRREGULAR = new Map(
+  Object.entries({
+    get: ["got", "gotten"],
+    tooth: ["teeth"],
+    blow: ["blew", "blown"],
+    dig: ["dug"],
+    hide: ["hid", "hidden"],
+    leaf: ["leaves"],
+    shoot: ["shot"],
+    sink: ["sank", "sunk"],
+    slide: ["slid"],
+    spend: ["spent"],
+    spin: ["spun"],
+    steal: ["stole", "stolen"],
+    cling: ["clung"],
+    creep: ["crept"],
+    overcome: ["overcame"],
+    undertake: ["undertook", "undertaken"],
+  }),
+);
+
+/** 예문에서 단어 자리를 빈칸으로 바꾼다. 그대로 없으면 변화형(adults, decided, applied)을 찾는다.
+ *  빈칸에 들어갈 말이 blew여도 정답은 기본형 blow다. 그래도 못 찾으면 null */
 function blankWord(sentence: string, word: string): string | null {
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const forms = [word, ...(IRREGULAR.get(word) ?? [])].map(esc).join("|");
   const stems = [word, word.replace(/e$/, ""), word.replace(/y$/, "i")].map(esc).join("|");
   // 그대로 있는 걸 먼저 — a 문제에서 and, an까지 가리지 않게
-  for (const re of [new RegExp(`\\b${esc(word)}\\b`, "gi"), new RegExp(`\\b(?:${stems})[a-z]{1,4}\\b`, "gi")]) {
+  for (const re of [new RegExp(`\\b(?:${forms})\\b`, "gi"), new RegExp(`\\b(?:${stems})[a-z]{1,4}\\b`, "gi")]) {
     const blanked = sentence.replace(re, "____");
     if (blanked !== sentence) return blanked;
   }
