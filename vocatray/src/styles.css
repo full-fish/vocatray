@@ -6,6 +6,7 @@
   --accent: #2563eb;
   --accent-text: #ffffff;
   --danger: #cf222e;
+  --ok: #65a30d;
   --button: #eef1f4;
 
   font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
@@ -26,6 +27,7 @@
     --line: #3d444d;
     --accent: #4c8dff;
     --danger: #e5534b;
+    --ok: #a3e635;
     --button: #2d333b;
   }
 }
