@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import "./popup";
 import { $, el, renderWord, speak, type Word } from "./word";
 
-type MemorizedWord = { key: string; word: Word };
+type MemorizedWord = { key: string; word: Word; quiz: { asked: number; correct: number; streak: number } };
 
 const quiz = $("quiz");
 const question = $("question");
@@ -81,7 +81,9 @@ function addBlanks(w: Word) {
 }
 
 function showScore() {
-  $("score").textContent = `맞음 ${right} · 틀림 ${wrong}`;
+  $("tally").textContent = `맞음 ${right} · 틀림 ${wrong}`;
+  const q = current?.quiz;
+  $("word-score").textContent = q ? `이 단어 ${q.correct}/${q.asked} · 연속 ${q.streak}` : "";
 }
 
 async function show() {
@@ -109,6 +111,11 @@ async function record(correct: boolean) {
   if (!current) return;
   if (correct) right++;
   else wrong++;
+  // 쓰기는 채점 뒤에도 같은 단어를 보여 주므로 기록을 store::record_quiz와 똑같이 바로 고쳐 둔다
+  const q = current.quiz;
+  q.asked++;
+  q.correct += Number(correct);
+  q.streak = correct ? q.streak + 1 : 0;
   showScore();
   await invoke("quiz_answer", { key: current.key, correct });
 }

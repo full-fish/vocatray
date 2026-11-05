@@ -182,6 +182,13 @@
   flex: 1 1 auto;
 }
 
+/* 이번에 푼 것은 왼쪽 끝, 지금 단어 기록은 같은 줄 오른쪽 끝 */
+.quiz #score {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 /* 문제만 스크롤한다 — 작은 창에서도 아래 버튼이 늘 보이게 */
 .quiz #question {
   flex: 1;
