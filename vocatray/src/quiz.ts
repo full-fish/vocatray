@@ -127,7 +127,7 @@ spell.addEventListener("submit", (e) => {
   const typed = answer.value.trim();
   if (!current || !typed) return;
   const correct = typed.toLowerCase() === current.word.word.toLowerCase();
-  result.textContent = correct ? "⭕ 맞았어요" : `✗ 틀렸어요 · 내 답: ${typed}`;
+  result.textContent = correct ? "맞았어요" : `✗ 틀렸어요 · 내 답: ${typed}`;
   result.classList.toggle("wrong", !correct);
   setRevealed(true);
   next.focus();
