@@ -1907,7 +1907,7 @@
       "examples": [{ "en": "You need to obtain permission before entering the laboratory.", "ko": "실험실에 들어가기 전에 허가를 받아야 한다." }] },
     { "word": "occupy", "phonetic": "/ˈɑːkjupaɪ/",
       "senses": [{ "pos": "v.", "ko": "차지하다, 점유하다; 점령하다" }],
-      "examples": [{ "en": "The large sofa occupies most of the living room.", "ko": "그 큰 소파가 거실의 대부분을 차지하고 있다." }] },
+      "examples": [{ "en": "The large sofa occupies most of the livingroom.", "ko": "그 큰 소파가 거실의 대부분을 차지하고 있다." }] },
     { "word": "offend", "phonetic": "/əˈfend/",
       "senses": [{ "pos": "v.", "ko": "기분 상하게 하다, 불쾌하게 하다; 죄를 범하다" }],
       "examples": [{ "en": "I'm sorry if my joke offended you.", "ko": "내 농담이 기분을 상하게 했다면 미안해." }] },
