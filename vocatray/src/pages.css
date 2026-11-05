@@ -176,14 +176,25 @@
   margin-top: 6px;
 }
 
-/* 답을 보기 전에 가리는 것 — 예문은 단어가 들어 있어 늘 가린다 */
-.quiz:not(.revealed) #examples,
+/* 답을 보기 전에 가리는 것 — 예문은 영어 → 뜻이면 해석을 가리고,
+   뜻 → 영어면 원문 대신 단어를 빈칸으로 바꾼 예문(.blank)을 보여 준다. 빈칸을 못 만든 예문은 통째로 가린다 */
+.quiz .example .blank,
 .quiz:not(.revealed)[data-dir="en"] #senses,
+.quiz:not(.revealed)[data-dir="en"] .example .ko,
 .quiz:not(.revealed)[data-dir="ko"] header,
 .quiz:not(.revealed)[data-dir="ko"] .sense .phon,
+.quiz:not(.revealed)[data-dir="ko"] .example .en,
+.quiz:not(.revealed)[data-dir="ko"] .example:not(:has(.blank)),
 .quiz:not(.revealed)[data-dir="spell"] header,
-.quiz:not(.revealed)[data-dir="spell"] .sense .phon {
+.quiz:not(.revealed)[data-dir="spell"] .sense .phon,
+.quiz:not(.revealed)[data-dir="spell"] .example .en,
+.quiz:not(.revealed)[data-dir="spell"] .example:not(:has(.blank)) {
   display: none;
+}
+
+.quiz:not(.revealed):not([data-dir="en"]) .example .blank {
+  display: block;
+  font-style: italic;
 }
 
 /* 통계 창 */
