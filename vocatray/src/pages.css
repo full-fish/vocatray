@@ -182,7 +182,7 @@
   flex: 1 1 auto;
 }
 
-/* 이번에 푼 것은 왼쪽 끝, 지금 단어 기록은 같은 줄 오른쪽 끝 */
+/* 지금 단어 기록은 왼쪽 끝, 이번에 푼 것은 같은 줄 오른쪽 끝 */
 .quiz #score {
   display: flex;
   justify-content: space-between;
