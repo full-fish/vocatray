@@ -102,6 +102,9 @@ struct AppState {
     hovering: bool,
     /// 호버를 시작할 때마다 1씩 — 감시 스레드가 그사이 새로 시작된 호버의 것인지 가린다.
     hover_generation: u64,
+    /// 우클릭 메뉴를 열었다 — 커서가 아이콘을 떠날 때까지 호버 카드를 띄우지 않는다.
+    /// 안 그러면 0.3초 뒤에 뜬 호버 카드가 막 뜬 메뉴를 닫아 버린다.
+    hover_muted: bool,
     /// 카드 내용 번호 — 더 새 내용이 나간 뒤 늦게 온 `card_ready`는 무시한다.
     seq: u64,
     /// 클릭 카드나 작은 창이 떠 있다 — 그동안 호버 카드를 띄우지 않는다.
@@ -268,7 +271,20 @@ fn on_tray_event(app: &AppHandle, event: TrayIconEvent) {
             hide(app, Card::Hover);
             present(app, Card::Click);
         }
+        // 우클릭은 메뉴만 — 호버 감시는 그대로 두어 커서가 떠나는 것을 알아채게 하고 카드만 막는다.
         // 우클릭 메뉴로 여는 작은 창도 아이콘 옆에 뜨게 위치를 기억한다.
+        TrayIconEvent::Click {
+            rect,
+            button: MouseButton::Right,
+            ..
+        } => {
+            {
+                let mut s = lock(app);
+                s.tray_rect = Some(rect);
+                s.hover_muted = true;
+            }
+            hide(app, Card::Hover);
+        }
         TrayIconEvent::Click { rect, .. } => lock(app).tray_rect = Some(rect),
         _ => {}
     }
@@ -306,14 +322,18 @@ fn watch_hover(app: AppHandle, generation: u64) {
 }
 
 fn leave_hover(app: &AppHandle) {
-    lock(app).hovering = false;
+    {
+        let mut s = lock(app);
+        s.hovering = false;
+        s.hover_muted = false;
+    }
     hide(app, Card::Hover);
 }
 
 fn show_hover(app: &AppHandle, generation: u64) {
     {
         let mut s = lock(app);
-        if !s.hovering || s.hover_generation != generation || s.click_visible {
+        if !s.hovering || s.hover_generation != generation || s.click_visible || s.hover_muted {
             return;
         }
         // 호버는 현재 단어를 다시 보여 주기만 한다 — 다음 단어는 [외웠어요]·[다음]을 눌러야 나온다.
@@ -358,7 +378,9 @@ fn card_ready(app: AppHandle, card: Card, seq: u64, height: f64) {
     let rect = {
         let s = lock(&app);
         // 그사이 더 새 내용이 나갔거나, 마우스가 이미 아이콘을 떠났으면 보여 주지 않는다.
-        if seq != s.seq || (card == Card::Hover && (!s.hovering || s.click_visible)) {
+        if seq != s.seq
+            || (card == Card::Hover && (!s.hovering || s.click_visible || s.hover_muted))
+        {
             return;
         }
         s.tray_rect
@@ -895,6 +917,7 @@ pub fn run() {
                 tray_rect: None,
                 hovering: false,
                 hover_generation: 0,
+                hover_muted: false,
                 seq: 0,
                 click_visible: false,
                 click_hidden_at: None,
@@ -935,6 +958,7 @@ mod tests {
             tray_rect: None,
             hovering: false,
             hover_generation: 0,
+            hover_muted: false,
             seq: 0,
             click_visible: false,
             click_hidden_at: None,
