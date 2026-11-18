@@ -1,6 +1,7 @@
 // 외운 단어 창 — 최근에 외운 것부터, 검색, [못 외웠어요]로 되돌리기.
 // 탭: 전체 / 진짜 외운 단어(퀴즈 5번 연속 맞힘) / 그냥 외운 단어. 전체에선 진짜 외운 단어를 맨 위에 다른 색으로
 import { invoke } from "@tauri-apps/api/core";
+import "./theme";
 import { listen } from "@tauri-apps/api/event";
 import "./popup";
 import { $, el, type Word } from "./word";

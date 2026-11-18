@@ -7,6 +7,8 @@
   --accent-text: #ffffff;
   --danger: #cf222e;
   --ok: #65a30d;
+  /* 강조색 버튼 위의 맞았어요 동그라미 */
+  --ok-on-accent: #a3e635;
   --button: #eef1f4;
 
   font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
@@ -30,6 +32,71 @@
     --ok: #a3e635;
     --button: #2d333b;
   }
+}
+
+/* 테마 — 트레이 메뉴 옵션 › 테마 (theme.ts가 data-theme을 붙인다). 기본은 위의 색으로 시스템 밝기를 따라가고,
+   나머지는 시스템과 상관없이 늘 같은 색이다. color-scheme은 스크롤 막대, 드롭다운 목록을 테마 밝기에 맞춘다 */
+:root[data-theme="cream"] {
+  color-scheme: light;
+  --bg: #f7f2e8;
+  --text: #2b2620;
+  --muted: #73685a;
+  --line: #e2d9c8;
+  --accent: #7a5c30;
+  --accent-text: #fbf7ef;
+  --danger: #a33a2c;
+  --ok: #6b7f3a;
+  --ok-on-accent: #d9e8a6;
+  --button: #ece4d4;
+}
+
+/* 크림은 영어를 세리프로 — 단어, 외운 단어 목록, 예문 */
+:root[data-theme="cream"] #word,
+:root[data-theme="cream"] .row .w,
+:root[data-theme="cream"] .example .en {
+  font-family: Georgia, "Times New Roman", "Malgun Gothic", serif;
+}
+
+:root[data-theme="mono"] {
+  color-scheme: dark;
+  --bg: #161616;
+  --text: #ececec;
+  --muted: #9b9b9b;
+  --line: #303030;
+  --accent: #ececec;
+  --accent-text: #161616;
+  --danger: #e5534b;
+  --ok: #9ccc65;
+  --ok-on-accent: #3f7d20;
+  --button: #262626;
+}
+
+:root[data-theme="sage"] {
+  color-scheme: light;
+  --bg: #f2f4ef;
+  --text: #1f2a22;
+  --muted: #5c6a60;
+  --line: #d9e0d5;
+  --accent: #47705a;
+  --accent-text: #ffffff;
+  --danger: #b0453b;
+  --ok: #5d8a3a;
+  --ok-on-accent: #d4f59a;
+  --button: #e4eade;
+}
+
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --bg: #111a2e;
+  --text: #e3e9f6;
+  --muted: #8d99b3;
+  --line: #26324d;
+  --accent: #7da4ff;
+  --accent-text: #0e1527;
+  --danger: #f07a72;
+  --ok: #9be37a;
+  --ok-on-accent: #1e5a2b;
+  --button: #1c2742;
 }
 
 * {

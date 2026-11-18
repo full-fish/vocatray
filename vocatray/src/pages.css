@@ -222,7 +222,7 @@
   color: var(--danger);
 }
 
-/* 맞았어요 동그라미 — ⭕ 이모지는 빨간색으로만 그려져서 고리를 직접 그린다. 파란 버튼 위엔 밝은 연두 */
+/* 맞았어요 동그라미 — ⭕ 이모지는 빨간색으로만 그려져서 고리를 직접 그린다. 강조색 버튼 위엔 테마마다 잘 보이는 색(--ok-on-accent) */
 #right::before,
 #result:not(.wrong)::before {
   content: "";
@@ -230,7 +230,7 @@
   width: 0.8em;
   height: 0.8em;
   margin-right: 0.35em;
-  border: 0.17em solid #a3e635;
+  border: 0.17em solid var(--ok-on-accent);
   border-radius: 50%;
   vertical-align: -0.1em;
 }

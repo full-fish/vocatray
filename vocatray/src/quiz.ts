@@ -2,6 +2,7 @@
 // 방향: 영어 → 뜻 / 뜻 → 영어 / 뜻 → 영어 쓰기. [틀렸어요]와 쓰기 오답은 그 단어를 "못 외웠어요"로 되돌리고,
 // 모든 단어에서 안 외운 단어를 맞히면 "외웠어요"로 친다.
 import { invoke } from "@tauri-apps/api/core";
+import "./theme";
 import { fitPopup } from "./popup";
 import { $, el, renderWord, speak, type Word } from "./word";
 

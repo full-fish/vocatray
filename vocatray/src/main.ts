@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import "./theme";
 import { listen } from "@tauri-apps/api/event";
 import { $, renderWord, speak, type Word } from "./word";
 

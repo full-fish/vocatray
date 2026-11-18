@@ -54,6 +54,8 @@ const DEFAULT_BOOK: &str = "middle";
 const AGAIN_GAP: usize = 10;
 /// 트레이 메뉴에서 여는 창 — 옵션을 켜면 작은 창으로 뜬다.
 const MENU_WINDOWS: [&str; 3] = ["words", "quiz", "stats"];
+/// 옵션 › 테마 — (styles.css의 `data-theme` 값, 메뉴 이름). 빈 값은 기본 (시스템 밝기를 따라감)
+const THEMES: [(&str, &str); 5] = [("", "기본"), ("cream", "크림"), ("mono", "흑백"), ("sage", "세이지"), ("night", "밤하늘")];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -203,6 +205,9 @@ impl AppState {
 /// 트레이 메뉴의 단어장 체크 항목. `AppState` 밖에 두는 이유: 메뉴 항목이 들어 있으면 `AppState`를 쓰는
 /// 단위 테스트가 Windows 공용 컨트롤 v6을 찾다가 실행조차 안 된다 (테스트 실행 파일엔 그 매니페스트가 없다).
 struct BookItems(Vec<CheckMenuItem<tauri::Wry>>);
+
+/// 트레이 메뉴의 테마 체크 항목 (`BookItems`와 같은 이유로 `AppState` 밖에 둔다)
+struct ThemeItems(Vec<CheckMenuItem<tauri::Wry>>);
 
 /// 트레이 메뉴의 동기화 줄 — 동기화 스레드가 글자를 바꾼다.
 struct SyncMenu {
@@ -619,6 +624,9 @@ fn on_menu_event(app: &AppHandle, event: MenuEvent) {
         "update" => return update::check_now(app),
         _ => {}
     }
+    if let Some(theme) = id.strip_prefix("theme:") {
+        return set_theme(app, theme);
+    }
     let Some(book_id) = id.strip_prefix("book:") else {
         return;
     };
@@ -723,6 +731,31 @@ fn toggle_popup_windows(app: &AppHandle) {
             let _ = window.close();
         }
     }
+}
+
+/// 옵션 › 테마 — 이 컴퓨터 설정이다. 떠 있는 창도 바로 바뀐다 (theme.ts가 "theme" 이벤트를 받는다).
+fn set_theme(app: &AppHandle, theme: &str) {
+    {
+        let mut s = lock(app);
+        s.settings.theme = theme.to_string();
+        if let Err(e) = store::save_settings(&s.data_dir, &s.settings) {
+            eprintln!("설정 저장 실패: {e}");
+        }
+    }
+    // 체크 메뉴는 누를 때마다 스스로 뒤집히므로 고른 테마만 체크되게 다시 맞춘다
+    if let Some(items) = app.try_state::<ThemeItems>() {
+        let id = format!("theme:{theme}");
+        for item in &items.0 {
+            let _ = item.set_checked(item.id().as_ref() == id);
+        }
+    }
+    let _ = app.emit("theme", theme);
+}
+
+/// 화면이 처음 뜰 때 테마를 묻는다 (theme.ts)
+#[tauri::command]
+fn theme(app: AppHandle) -> String {
+    lock(&app).settings.theme.clone()
 }
 
 /// 트레이 메뉴의 "시작 시 자동 실행" 체크
@@ -834,14 +867,14 @@ fn on_window_event(window: &Window, event: &WindowEvent) {
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let (books, selected, popup_windows) = {
+    let (books, selected, popup_windows, theme) = {
         let s = lock(app);
         let books: Vec<(String, String)> = s
             .books
             .iter()
             .map(|b| (b.id.clone(), format!("{} ({}단어)", b.title, b.words.len())))
             .collect();
-        (books, s.book().id.clone(), s.settings.popup_windows)
+        (books, s.book().id.clone(), s.settings.popup_windows, s.settings.theme.clone())
     };
     let mut submenu = SubmenuBuilder::new(app, "단어장");
     let mut book_items = Vec::new();
@@ -861,9 +894,19 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let popup_item = CheckMenuItemBuilder::with_id("popup-windows", "창을 트레이 위에 작게 열기")
         .checked(popup_windows)
         .build(app)?;
+    let mut themes = SubmenuBuilder::new(app, "테마");
+    let mut theme_items = Vec::new();
+    for (id, label) in THEMES {
+        let item = CheckMenuItemBuilder::with_id(format!("theme:{id}"), label)
+            .checked(id == theme)
+            .build(app)?;
+        themes = themes.item(&item);
+        theme_items.push(item);
+    }
     let options = SubmenuBuilder::new(app, "옵션")
         .item(&autostart)
         .item(&popup_item)
+        .item(&themes.build()?)
         .text("update", "업데이트 확인…")
         .build()?;
     let menu = MenuBuilder::new(app)
@@ -880,6 +923,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .text("quit", "종료")
         .build()?;
     app.manage(BookItems(book_items));
+    app.manage(ThemeItems(theme_items));
     app.manage(SyncMenu { status, sync_now, account });
     app.manage(AutostartItem(autostart));
 
@@ -917,7 +961,8 @@ pub fn run() {
             quiz_answer,
             book_list,
             dont_know,
-            stats
+            stats,
+            theme
         ])
         .on_window_event(on_window_event)
         .setup(|app| {
