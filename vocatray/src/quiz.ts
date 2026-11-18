@@ -2,7 +2,7 @@
 // 방향: 영어 → 뜻 / 뜻 → 영어 / 뜻 → 영어 쓰기. [틀렸어요]와 쓰기 오답은 그 단어를 "못 외웠어요"로 되돌리고,
 // 모든 단어에서 안 외운 단어를 맞히면 "외웠어요"로 친다.
 import { invoke } from "@tauri-apps/api/core";
-import "./popup";
+import { fitPopup } from "./popup";
 import { $, el, renderWord, speak, type Word } from "./word";
 
 type MemorizedWord = { key: string; word: Word; quiz: { asked: number; correct: number; streak: number } };
@@ -105,6 +105,7 @@ async function show() {
     addBlanks(current.word);
   }
   if (current && isSpell()) answer.focus();
+  fitPopup();
 }
 
 async function record(correct: boolean) {
@@ -130,7 +131,10 @@ function setDir() {
   reveal.textContent = dir.value === "en" ? "눌러서 뜻 보기" : "눌러서 영어 보기";
 }
 
-reveal.addEventListener("click", () => setRevealed(true));
+reveal.addEventListener("click", () => {
+  setRevealed(true);
+  fitPopup();
+});
 $("speak").addEventListener("click", () => current && speak(current.word.word));
 $("right").addEventListener("click", () => answerWith(true));
 $("wrong").addEventListener("click", () => answerWith(false));
@@ -143,6 +147,7 @@ spell.addEventListener("submit", (e) => {
   result.textContent = correct ? "맞았어요" : `✗ 틀렸어요 · 내 답: ${typed}`;
   result.classList.toggle("wrong", !correct);
   setRevealed(true);
+  fitPopup();
   next.focus();
   record(correct);
 });
@@ -162,7 +167,10 @@ dir.addEventListener("change", () => {
   localStorage.setItem("quiz-dir", dir.value);
   setDir();
   if (newQuestion) show();
-  else setRevealed(false);
+  else {
+    setRevealed(false);
+    fitPopup();
+  }
 });
 
 async function start() {

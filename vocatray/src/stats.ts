@@ -1,7 +1,7 @@
 // 통계 창 — 단어장별 진도, 최근 7일 외운 단어 수, 퀴즈 정답률 (전체, 최근 한 달, 일주일, 오늘)
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import "./popup";
+import { fitPopup } from "./popup";
 import { $, el } from "./word";
 
 type QuizCount = { asked: number; correct: number };
@@ -74,6 +74,7 @@ function render(s: Stats) {
       return li;
     }),
   );
+  fitPopup();
 }
 
 async function load() {

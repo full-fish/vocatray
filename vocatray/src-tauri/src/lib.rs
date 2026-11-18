@@ -611,9 +611,9 @@ fn on_menu_event(app: &AppHandle, event: MenuEvent) {
         "quit" => return app.exit(0),
         "account" => return sync::notify(app, sync::Command::ToggleAccount),
         "sync-now" => return sync::notify(app, sync::Command::SyncNow),
-        "words" => return open_window(app, "words", "외운 단어", (380.0, 520.0), (300.0, 360.0)),
-        "quiz" => return open_window(app, "quiz", "퀴즈", (340.0, 400.0), (280.0, 340.0)),
-        "stats" => return open_window(app, "stats", "통계", (340.0, 420.0), (280.0, 350.0)),
+        "words" => return open_window(app, "words", "외운 단어", (380.0, 520.0)),
+        "quiz" => return open_window(app, "quiz", "퀴즈", (340.0, 400.0)),
+        "stats" => return open_window(app, "stats", "통계", (340.0, 420.0)),
         "popup-windows" => return toggle_popup_windows(app),
         "autostart" => return toggle_autostart(app),
         "update" => return update::check_now(app),
@@ -638,7 +638,6 @@ fn open_window(
     label: &'static str,
     title: &'static str,
     (width, height): (f64, f64),
-    (popup_width, popup_height): (f64, f64),
 ) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.unminimize();
@@ -646,6 +645,7 @@ fn open_window(
         return;
     }
     let popup = lock(app).settings.popup_windows;
+    let (popup_width, popup_height) = popup_size(label);
     // 메뉴 이벤트(메인 스레드)에서 창을 만들면 Windows에서 멈출 수 있다 (WebView2) → 다른 스레드에서 만든다.
     let app = app.clone();
     std::thread::spawn(move || {
@@ -662,7 +662,8 @@ fn open_window(
                 .shadow(true)
                 .visible(false)
                 .on_page_load(move |window, load| {
-                    if load.event() == PageLoadEvent::Finished {
+                    // 퀴즈, 통계는 화면이 내용을 다 그린 뒤 fit_popup으로 보여 준다
+                    if label == "words" && load.event() == PageLoadEvent::Finished {
                         show_popup(&window, popup_width, popup_height);
                     }
                 })
@@ -673,6 +674,24 @@ fn open_window(
             eprintln!("{title} 창을 열 수 없음: {e}");
         }
     });
+}
+
+/// 작은 창 크기 (폭, 높이). 퀴즈, 통계는 이 높이가 상한이고 내용이 짧으면 그만큼 줄인다 (`fit_popup`).
+/// 외운 단어는 검색할 때마다 창이 줄었다 늘었다 하지 않게 이 크기 그대로 둔다.
+fn popup_size(label: &str) -> (f64, f64) {
+    match label {
+        "words" => (300.0, 360.0),
+        "quiz" => (280.0, 340.0),
+        _ => (280.0, 350.0),
+    }
+}
+
+/// 퀴즈, 통계 작은 창 — 화면이 내용을 다 그릴 때마다 그 높이를 알려 준다. 그 높이로 맞춰 보여 준다 (아래가 비지 않게).
+/// 상한보다 긴 내용은 창 안에서 스크롤한다.
+#[tauri::command]
+fn fit_popup(window: WebviewWindow, height: f64) {
+    let (width, max_height) = popup_size(window.label());
+    show_popup(&window, width, height.min(max_height));
 }
 
 /// 작은 창 — 화면을 다 읽은 뒤에 아이콘 옆으로 옮겨 보여 준다 (카드처럼 빈 창이 비치지 않게).
@@ -891,6 +910,7 @@ pub fn run() {
             previous_word,
             hide_click,
             close_popup,
+            fit_popup,
             memorized_words,
             forget_word,
             quiz_word,
