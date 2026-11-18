@@ -74,6 +74,17 @@
   user-select: text;
 }
 
+/* 브라우저 기본 포커스 고리는 어두운 화면에서 굵은 흰 테두리라 깨져 보인다 → 강조색 테두리로 */
+#search:focus-visible,
+#book:focus-visible,
+#scope:focus-visible,
+#dir:focus-visible,
+#answer:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .tabs {
   display: flex;
   border-bottom: 1px solid var(--line);
