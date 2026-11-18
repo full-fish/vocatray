@@ -230,6 +230,8 @@ pub fn save_device(dir: &Path, device: &Device) -> io::Result<()> {
 pub struct Settings {
     /// 외운 단어·퀴즈·통계를 따로 된 창 대신 트레이 위에 작게 연다
     pub popup_windows: bool,
+    /// 화면 테마 — styles.css의 `data-theme` 값. 빈 문자열은 기본 (시스템 밝기를 따라감)
+    pub theme: String,
 }
 
 /// 없거나 깨져 있으면 기본값 (설정 파일 하나 때문에 앱이 안 켜지면 안 되므로).
@@ -325,11 +327,14 @@ mod tests {
     fn settings_are_saved_and_broken_file_falls_back_to_default() {
         let dir = TempDir::new();
         assert_eq!(load_settings(&dir.0), Settings::default());
-        let settings = Settings { popup_windows: true };
+        let settings = Settings { popup_windows: true, theme: "cream".into() };
         save_settings(&dir.0, &settings).unwrap();
         assert_eq!(load_settings(&dir.0), settings);
         fs::write(dir.0.join("settings.json"), "{ 깨짐").unwrap();
         assert_eq!(load_settings(&dir.0), Settings::default());
+        // 테마가 없던 0.1.14 이전 파일 — 작은 창 설정은 그대로, 테마는 기본
+        fs::write(dir.0.join("settings.json"), r#"{ "popupWindows": true }"#).unwrap();
+        assert_eq!(load_settings(&dir.0), Settings { popup_windows: true, theme: String::new() });
     }
 
     #[test]
